@@ -65,6 +65,60 @@
     width: 100%;
     height: 100%;
     object-fit: contain;
+    transition: transform 0.05s;
+  }
+
+  /* Bildschirm-Wackeln beim Drachentod */
+  @keyframes screen-shake {
+    0% { transform: translate(0, 0); }
+    20% { transform: translate(-6px, 4px); }
+    40% { transform: translate(6px, -5px); }
+    60% { transform: translate(-5px, -3px); }
+    80% { transform: translate(5px, 5px); }
+    100% { transform: translate(0, 0); }
+  }
+  .shake-effect {
+    animation: screen-shake 0.18s infinite;
+  }
+
+  /* Retro-Dialogbanner für Yendors letzte Worte direkt im Spielbildschirm */
+  #dragon-banner {
+    position: absolute;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(18, 6, 10, 0.95);
+    border: 3px solid #ef476f;
+    outline: 2px solid #ffd166;
+    border-radius: 4px;
+    padding: 12px 18px;
+    text-align: center;
+    z-index: 8;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 0 30px rgba(239, 71, 111, 0.85), inset 0 0 15px rgba(255, 209, 102, 0.25);
+    max-width: 88%;
+  }
+  #dragon-banner .speaker {
+    color: #ffd166;
+    font-size: 0.78rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    text-shadow: 2px 2px 0 #000;
+  }
+  #dragon-banner .quote {
+    color: #ff4d6d;
+    font-size: 1.05rem;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    line-height: 1.35;
+    text-shadow: 2px 2px 0 #000, 0 0 10px rgba(255, 77, 109, 0.8);
+    animation: quote-pulse 0.45s ease-in-out infinite alternate;
+  }
+  @keyframes quote-pulse {
+    0% { transform: scale(1); color: #ff4d6d; }
+    100% { transform: scale(1.03); color: #ffd166; }
   }
 
   /* Mini-Map unten links */
@@ -295,25 +349,75 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    padding: 16px;
+    padding: 12px;
     text-align: center;
     z-index: 10;
-    gap: 10px;
+    gap: 8px;
+    overflow-y: auto;
   }
   #overlay h2 {
-    font-size: 1.55rem;
+    font-size: 1.4rem;
     color: var(--accent);
     letter-spacing: 1px;
+    text-shadow: 0 2px 10px rgba(244, 180, 27, 0.4);
   }
   #overlay p {
-    font-size: 0.83rem;
-    line-height: 1.35;
-    max-width: 400px;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    max-width: 430px;
     color: #ccc4e0;
   }
+
+  /* Triumph-Grafik & Heldentafel beim Sieg */
+  #victory-showcase {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(180deg, #241734 0%, #140d1e 100%);
+    border: 2px solid #ffd166;
+    border-radius: 6px;
+    padding: 8px 14px;
+    width: 100%;
+    max-width: 390px;
+    box-shadow: 0 0 24px rgba(255, 209, 102, 0.35);
+  }
+  #victoryCanvas {
+    width: 96px;
+    height: 64px;
+    image-rendering: pixelated;
+    border: 1px solid #4a3e66;
+    background: #09060e;
+    border-radius: 4px;
+  }
+  .hero-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    width: 100%;
+    font-size: 0.74rem;
+    text-align: left;
+    color: #e2dbef;
+    border-top: 1px solid #3b3054;
+    padding-top: 6px;
+  }
+  .hero-stats-grid div {
+    display: flex;
+    justify-content: space-between;
+  }
+  .hero-stats-grid b {
+    color: #ffd166;
+  }
+  .champion-badge {
+    color: #00f5d4;
+    font-size: 0.75rem;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+
   .main-btn {
-    padding: 10px 24px;
-    font-size: 0.95rem;
+    padding: 9px 22px;
+    font-size: 0.9rem;
     background: var(--accent);
     color: #0d0b12;
     border: none;
@@ -327,14 +431,28 @@
   .main-btn:hover { background: #ffc233; }
   .main-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b5830e; }
 
+  .abandon-btn {
+    display: none;
+    background: #3a2312;
+    border: 1px solid #f39c12;
+    color: #ffd166;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.73rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .abandon-btn:hover { background: #523219; }
+
   .reset-btn {
     background: #3b1824;
     border: 1px solid #e83b3b;
     color: #ff8787;
-    padding: 6px 12px;
+    padding: 5px 12px;
     border-radius: 4px;
     font-family: inherit;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: bold;
     cursor: pointer;
     margin-top: 2px;
@@ -344,28 +462,28 @@
   .meta-shop {
     background: #161121;
     border: 2px solid #5a2a75;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 6px;
     width: 100%;
-    max-width: 380px;
+    max-width: 390px;
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 5px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.6);
   }
-  .meta-title { color: #e07be0; font-size: 0.85rem; font-weight: bold; letter-spacing: 1px; }
-  .meta-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; text-align: left; }
+  .meta-title { color: #e07be0; font-size: 0.82rem; font-weight: bold; letter-spacing: 1px; }
+  .meta-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; text-align: left; }
   .meta-btn {
     background: #7b2cbf;
     color: #fff;
     border: 1px solid #9d4edd;
-    padding: 4px 10px;
+    padding: 3px 9px;
     border-radius: 4px;
     cursor: pointer;
     font-family: inherit;
-    font-size: 0.75rem;
+    font-size: 0.73rem;
     font-weight: bold;
-    min-width: 78px;
+    min-width: 74px;
     text-align: center;
   }
   .meta-btn:hover { background: #9d4edd; }
@@ -373,7 +491,7 @@
 
   #version-tag {
     position: absolute;
-    bottom: 8px;
+    bottom: 6px;
     right: 12px;
     font-size: 0.65rem;
     color: #6c6085;
@@ -407,14 +525,24 @@
     <div id="canvas-container">
       <canvas id="gameCanvas" width="312" height="234"></canvas>
       <canvas id="minimapCanvas" width="64" height="48"></canvas>
+      <div id="dragon-banner">
+        <div class="speaker">🐉 ERZ-DRACHE YENDOR</div>
+        <div class="quote">„DIE SCHATTEN WERDEN DICH VERSCHLINGEN...“</div>
+      </div>
       <div id="vignette"></div>
       <div id="overlay">
         <h2 id="overlay-title">CHRIS - DIE 9 EBENEN</h2>
         <p id="overlay-desc">9 tödliche Ebenen trennen Chris vom Amulett von Yendor. Stirb, sammle Seelen-Essenzen und werde mit jedem Run stärker!</p>
+
+        <div id="victory-showcase">
+          <canvas id="victoryCanvas" width="48" height="32"></canvas>
+          <div class="champion-badge" id="victory-crown-text">👑 SEGEN VON YENDOR FREIGESCHALTET!</div>
+          <div class="hero-stats-grid" id="hero-stats-grid"></div>
+        </div>
         
         <div class="meta-shop">
           <div class="meta-title" title="Upgrades, die du hier kaufst, bleiben Chris auch nach dem Tod für alle zukünftigen Versuche dauerhaft erhalten!">⚒️ SCHATTEN-SCHMIEDE (Dauerhafte Boni)</div>
-          <div style="font-size: 0.82rem; color: var(--gold); font-weight: bold;" id="meta-souls-display" title="Seelen-Essenzen sammelst du im Dungeon durch besiegte Monster, Goldschätze und gemeisterte Ebenen.">Seelen-Essenzen: 0 🔮</div>
+          <div style="font-size: 0.8rem; color: var(--gold); font-weight: bold;" id="meta-souls-display" title="Seelen-Essenzen sammelst du im Dungeon durch besiegte Monster, Goldschätze und gemeisterte Ebenen.">Seelen-Essenzen: 0 🔮</div>
           
           <div class="meta-row" title="Erhöht Chris' maximale Lebenspunkte zu Beginn jedes neuen Versuchs dauerhaft um +8 HP.">
             <span>❤️ Vitalität (+8 Start-HP) [St. <span id="meta-hp-lvl">0</span>]</span>
@@ -435,8 +563,9 @@
         </div>
 
         <button class="main-btn" id="start-btn" type="button" title="Beginnt ein neues Abenteuer für Chris auf Ebene 1 mit allen Boni aus der Schatten-Schmiede.">RUN STARTEN (VERSUCH #1)</button>
+        <button class="abandon-btn" id="abandon-run-btn" type="button" title="Bricht den aktuellen Durchlauf ab und startet auf Ebene 1 neu (Seelen & Schmiede bleiben erhalten).">🚀 AKTUELLEN RUN AUFGEBEN & NEU STARTEN</button>
         <button class="reset-btn" id="reset-meta-btn" type="button" title="Löscht alle gesammelten Seelen-Essenzen und Schmiede-Upgrades, um komplett bei Null zu beginnen.">🔄 SPIEL KOMPLETT NEU STARTEN (RESET)</button>
-        <div id="version-tag">v1.8.5</div>
+        <div id="version-tag">v1.9.0</div>
       </div>
     </div>
     <div id="log-box" title="Ereignis-Protokoll: Hier siehst du Kampfergebnisse, gefundene Schätze und Hinweise."></div>
@@ -444,7 +573,7 @@
 
   <div id="right-pane">
     <div class="panel-box">
-      <h3><span>CHRIS - STATUS</span> <span id="stat-runs" style="color:#e07be0;" title="Zählt, im wievielten Anlauf sich Chris aktuell befindet.">Run #1</span></h3>
+      <h3><span id="chris-title-label">CHRIS - STATUS</span> <span id="stat-runs" style="color:#e07be0;" title="Zählt, im wievielten Anlauf sich Chris aktuell befindet.">Run #1</span></h3>
       <div class="stats-grid">
         <span class="stat-hp" id="stat-hp" title="Lebenspunkte (HP): Sinken sie auf 0, endet dieser Durchlauf.">♥ 20/20</span>
         <span class="stat-gold" id="stat-gold" title="Goldmünzen: Währung für den aktuellen Run.">🪙 0</span>
@@ -516,6 +645,10 @@ let cheatHistory = [];
 let cheatUnlocked = false;
 let godMode = false;
 
+// Blockiert Dauerlaufen, sobald Chris auf ein Hindernis, Item oder einen Gegner trifft
+let blockKeyRepeat = false;
+let particles = [];
+
 const statTimers = {};
 function flashStat(id, className) {
   const el = document.getElementById(id);
@@ -530,7 +663,7 @@ function flashStat(id, className) {
 }
 
 let metaData = {
-  souls: 0, runs: 1, hpLvl: 0, atkLvl: 0, defLvl: 0, potLvl: 0
+  souls: 0, runs: 1, hpLvl: 0, atkLvl: 0, defLvl: 0, potLvl: 0, victories: 0
 };
 
 function loadMetaLocal() {
@@ -544,6 +677,7 @@ function loadMetaLocal() {
       metaData.atkLvl = Number(parsed.atkLvl) || 0;
       metaData.defLvl = Number(parsed.defLvl) || 0;
       metaData.potLvl = Number(parsed.potLvl) || 0;
+      metaData.victories = Number(parsed.victories) || 0;
     }
   } catch(e) {}
 }
@@ -555,18 +689,21 @@ function saveMetaLocal() {
 }
 
 function resetMetaProgress() {
-  if (confirm('Möchtest du wirklich das komplette Spiel zurücksetzen? Alle Seelen, Upgrades und Fortschritte gehen verloren!')) {
-    metaData = { souls: 0, runs: 1, hpLvl: 0, atkLvl: 0, defLvl: 0, potLvl: 0 };
+  if (confirm('Möchtest du wirklich das komplette Spiel zurücksetzen? Alle Seelen, Siege, Upgrades und Fortschritte gehen verloren!')) {
+    metaData = { souls: 0, runs: 1, hpLvl: 0, atkLvl: 0, defLvl: 0, potLvl: 0, victories: 0 };
+    state = {};
     saveMetaLocal();
-    updateMetaUI();
     localStorage.removeItem('hack1984_meta_v4');
+    document.getElementById('log-box').innerHTML = '';
     addLog('Spiel wurde komplett auf Anfang zurückgesetzt.', '#ff6b6b');
     
+    document.getElementById('victory-showcase').style.display = 'none';
+    document.getElementById('abandon-run-btn').style.display = 'none';
     const overlay = document.getElementById('overlay');
     if (overlay) overlay.style.display = 'flex';
     document.getElementById('overlay-title').textContent = 'CHRIS - DIE 9 EBENEN';
     document.getElementById('overlay-desc').textContent = '9 tödliche Ebenen trennen Chris vom Amulett von Yendor. Stirb, sammle Seelen-Essenzen und werde mit jedem Run stärker!';
-    document.getElementById('start-btn').textContent = 'RUN STARTEN (VERSUCH #1)';
+    updateMetaUI();
   }
 }
 
@@ -592,16 +729,29 @@ function updateMetaUI() {
 
   const hasActiveRun = (state && state.player && !state.gameOver);
   document.getElementById('start-btn').textContent = hasActiveRun ? 'WEITERSPIELEN' : `RUN STARTEN (VERSUCH #${metaData.runs})`;
+  document.getElementById('abandon-run-btn').style.display = hasActiveRun ? 'inline-block' : 'none';
   document.getElementById('stat-runs').textContent = `Run #${metaData.runs}`;
   document.getElementById('stat-souls').textContent = `🔮 ${metaData.souls}`;
+
+  const titleLabel = document.getElementById('chris-title-label');
+  if (metaData.victories > 0) {
+    titleLabel.textContent = `👑 CHRIS (SIEGE: ${metaData.victories})`;
+    titleLabel.style.color = '#ffd166';
+    titleLabel.title = `Segen von Yendor aktiv: +${metaData.victories * 5} Start-HP, +${metaData.victories}⚔, +${metaData.victories}🛡`;
+  } else {
+    titleLabel.textContent = 'CHRIS - STATUS';
+    titleLabel.style.color = '#9e93b8';
+    titleLabel.title = '';
+  }
 }
 
 function openMainMenu() {
-  if (!state || !state.player) return;
+  if (!state || !state.player || state.cutscene) return;
+  document.getElementById('victory-showcase').style.display = 'none';
   const overlay = document.getElementById('overlay');
   if (overlay) overlay.style.display = 'flex';
   document.getElementById('overlay-title').textContent = 'CHRIS - DIE 9 EBENEN (PAUSE)';
-  document.getElementById('overlay-desc').textContent = 'Besuche die Schatten-Schmiede oder setze deinen Run fort.';
+  document.getElementById('overlay-desc').textContent = 'Besuche die Schatten-Schmiede, setze deinen Run fort oder starte einen neuen Versuch.';
   updateMetaUI();
   addLog('Ins Hauptmenü gewechselt. Spiel pausiert.', '#c792ea');
 }
@@ -615,6 +765,13 @@ function handleStartButton() {
   } else {
     initGame();
   }
+}
+
+function abandonCurrentRun() {
+  if (!state || !state.player || state.gameOver) return;
+  metaData.runs++;
+  saveMetaLocal();
+  initGame();
 }
 
 function buyMetaUpgrade(type) {
@@ -665,12 +822,55 @@ function playSound(type) {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+
+    if (type === 'boss_death') {
+      // Tiefer Donner + Drachenschrei-Synthese
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(160, now);
+      osc1.frequency.exponentialRampToValueAtTime(22, now + 1.8);
+      gain1.gain.setValueAtTime(0.22, now);
+      gain1.gain.linearRampToValueAtTime(0.01, now + 1.8);
+      osc1.connect(gain1); gain1.connect(audioCtx.destination);
+      osc1.start(now); osc1.stop(now + 1.8);
+
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(420, now + 0.15);
+      osc2.frequency.exponentialRampToValueAtTime(45, now + 1.5);
+      gain2.gain.setValueAtTime(0.14, now + 0.15);
+      gain2.gain.linearRampToValueAtTime(0.01, now + 1.5);
+      osc2.connect(gain2); gain2.connect(audioCtx.destination);
+      osc2.start(now + 0.15); osc2.stop(now + 1.5);
+      return;
+    }
+
+    if (type === 'victory_fanfare') {
+      const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 523.25];
+      const times = [0, 0.14, 0.28, 0.42, 0.62, 0.78];
+      const durs  = [0.12, 0.12, 0.12, 0.18, 0.14, 0.45];
+      notes.forEach((freq, idx) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'square';
+        o.frequency.setValueAtTime(freq, now + times[idx]);
+        g.gain.setValueAtTime(0.12, now + times[idx]);
+        g.gain.linearRampToValueAtTime(0.01, now + times[idx] + durs[idx]);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now + times[idx]);
+        o.stop(now + times[idx] + durs[idx]);
+      });
+      return;
+    }
+
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
 
-    const now = audioCtx.currentTime;
     if (type === 'step') {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(120, now);
@@ -768,13 +968,13 @@ const SPRITES = {
   stairs_spiral_broken:["KKKKKKKK", "KAA..AAK", "K..AA..K", "K.AAAA.K", "KAA..AAK", "K.AAAA.K", "KAA..AAK", "KKKKKKKK"],
   stairs_rune:         ["KKKKKKKK", "KRRRRRRK", "KRYKKYRK", "KRRRRRRK", "KRYKKYRK", "KRRRRRRK", "K......K", "KKKKKKKK"],
   stairs_rune_broken:  ["KKKKKKKK", "KRR..RRK", "K.RRRR.K", "KRY..YRK", "K.RRRR.K", "KRR.RRRK", "K.RRRR.K", "KKKKKKKK"],
-  blood:               ["........", "..R..R..", ".RRRRRR.", "..RRRRR.", ".RRRRRR.", "..RR..R.", "...R....", "........"]
+  blood:               ["........", "..M..R..", ".MRRRRR.", "..RRRRMM", ".RMRRRR.", "..RR..M.", "...M....", "........"]
 };
 
 const PALETTE = {
   'W': '#ffffff', 'K': '#0d0b12', 'Y': '#ffd166', 'B': '#118ab2',
-  'G': '#06d6a0', 'P': '#b5179e', 'D': '#52b788', 'R': '#e63946',
-  'O': '#e67e22', 'C': '#4ecdc4', 'A': '#a398b8', 'M': '#8e1c1c'
+  'G': '#06d6a0', 'P': '#b5179e', 'D': '#52b788', 'R': '#d90429',
+  'O': '#e67e22', 'C': '#4ecdc4', 'A': '#a398b8', 'M': '#780000'
 };
 
 const FLOOR_TRANSITIONS = {
@@ -814,8 +1014,8 @@ function addLog(msg, color = '#e2dbef') {
   box.scrollTop = box.scrollHeight;
 }
 
-function getBaseAtk() { return 3 + metaData.atkLvl; }
-function getBaseDef() { return 0 + metaData.defLvl; }
+function getBaseAtk() { return 3 + metaData.atkLvl + (metaData.victories || 0); }
+function getBaseDef() { return 0 + metaData.defLvl + (metaData.victories || 0); }
 function getPotionHeal() { return 13 + metaData.potLvl * 6; }
 
 function recalcStats() {
@@ -828,19 +1028,30 @@ function recalcStats() {
 function initGame() {
   const overlay = document.getElementById('overlay');
   if (overlay) overlay.style.display = 'none';
+  document.getElementById('victory-showcase').style.display = 'none';
+  document.getElementById('dragon-banner').style.display = 'none';
+  canvas.classList.remove('shake-effect');
+
   const vTag = document.getElementById('version-tag');
   if (vTag) vTag.style.display = 'none';
   const vig = document.getElementById('vignette');
   if (vig) { vig.className = ''; vig.style.opacity = '0'; }
   selectedItemIdx = null;
   cheatHistory = [];
+  particles = [];
   
-  const startHp = 20 + (metaData.hpLvl * 8);
+  const startHp = 20 + (metaData.hpLvl * 8) + ((metaData.victories || 0) * 5);
 
   state = {
     floor: 1,
     gameOver: false,
+    cutscene: false,
+    dragonSlain: false,
     kills: 0,
+    turns: 0,
+    damageDealt: 0,
+    potionsUsed: 0,
+    goldEarned: 0,
     player: {
       x: 0, y: 0,
       facingLeft: false,
@@ -893,6 +1104,7 @@ function processLoadFile(event) {
       const parsed = JSON.parse(e.target.result);
       if (parsed.state && parsed.metaData) {
         metaData = parsed.metaData;
+        metaData.victories = Number(metaData.victories) || 0;
         state = parsed.state;
         if (!state.bloodstains) state.bloodstains = [];
         saveMetaLocal();
@@ -1025,6 +1237,7 @@ function generateFloor() {
   state.enemies = [];
   state.items = [];
   state.bloodstains = [];
+  particles = [];
 
   const rooms = [];
   for (let i = 0; i < 90; i++) {
@@ -1263,7 +1476,7 @@ function cheatRevealMap() {
 }
 
 function drinkPotionShortcut() {
-  if (!state || !state.player || state.gameOver) return;
+  if (!state || !state.player || state.gameOver || state.cutscene) return;
   const potIdx = state.inventory.findIndex(i => i.type === 'potion');
   if (potIdx !== -1) {
     useItemByIndex(potIdx);
@@ -1272,11 +1485,58 @@ function drinkPotionShortcut() {
   }
 }
 
-function handleInput(dx, dy) {
-  if (!state || !state.player || state.gameOver) return;
+function spawnDragonExplosion(worldX, worldY) {
+  const colors = ['#ff4d6d', '#ffd166', '#f39c12', '#00f5d4', '#ffffff', '#e07be0'];
+  for (let i = 0; i < 65; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.04 + Math.random() * 0.22;
+    particles.push({
+      wx: worldX + 0.5,
+      wy: worldY + 0.5,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 45 + Math.floor(Math.random() * 45),
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() < 0.35 ? 2 : 1
+    });
+  }
+}
+
+function triggerDragonDeathSequence(dragon) {
+  state.cutscene = true;
+  state.dragonSlain = true;
+  blockKeyRepeat = true;
+
+  playSound('boss_death');
+  canvas.classList.add('shake-effect');
+  spawnDragonExplosion(dragon.x, dragon.y);
+
+  const banner = document.getElementById('dragon-banner');
+  banner.style.display = 'block';
+
+  // Zweite Explosionswelle nach 900ms
+  setTimeout(() => {
+    if (state && state.cutscene) {
+      spawnDragonExplosion(dragon.x, dragon.y);
+      playSound('collapse');
+    }
+  }, 900);
+
+  setTimeout(() => {
+    canvas.classList.remove('shake-effect');
+    banner.style.display = 'none';
+    if (state) state.cutscene = false;
+    addLog('🔥 Erz-Drache Yendor zerfällt zu glühender Asche! Das Amulett von Yendor liegt frei vor Chris!', '#00f5d4');
+  }, 3300);
+}
+
+function handleInput(dx, dy, isRepeat = false) {
+  if (!state || !state.player || state.gameOver || state.cutscene) return;
   const p = state.player;
 
-  checkCheatSequence(dx, dy);
+  if (!isRepeat) {
+    checkCheatSequence(dx, dy);
+  }
 
   if (dx < 0) p.facingLeft = true;
   else if (dx > 0) p.facingLeft = false;
@@ -1286,23 +1546,44 @@ function handleInput(dx, dy) {
 
   if (dx === 0 && dy === 0) return;
 
-  if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
-  if (state.map[ny][nx] === 1) return;
+  if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) {
+    blockKeyRepeat = true;
+    return;
+  }
+  if (state.map[ny][nx] === 1) {
+    blockKeyRepeat = true;
+    return;
+  }
 
   const enemy = state.enemies.find(e => e.x === nx && e.y === ny);
   if (enemy) {
+    // Kein Angriff oder Händler-Anrempeln durch gedrückt gehaltene Taste!
+    blockKeyRepeat = true;
+    if (isRepeat) return;
+
     if (enemy.isShopkeeper) {
       addLog('Karl-Heinz: "Moin Chris! Tritt einfach auf meine Waren neben mir, um sie zu kaufen!"', '#ffd166');
     } else {
       attackEntity(p, enemy, true);
     }
+    state.turns = (state.turns || 0) + 1;
     endTurn();
     return;
   }
 
   p.x = nx;
   p.y = ny;
+  state.turns = (state.turns || 0) + 1;
   playSound('step');
+
+  // Stoppe Dauerlaufen sofort, wenn Chris auf ein Item tritt oder direkt neben einem Gegner/Händler ankommt
+  const steppedOnItem = state.items.some(i => i.x === p.x && i.y === p.y);
+  const adjacentToEntity = state.enemies.some(e => Math.abs(e.x - p.x) <= 1 && Math.abs(e.y - p.y) <= 1);
+  const adjacentToItem = state.items.some(i => Math.abs(i.x - p.x) + Math.abs(i.y - p.y) === 1);
+  if (steppedOnItem || adjacentToEntity || adjacentToItem) {
+    blockKeyRepeat = true;
+  }
+
   checkItems();
   endTurn();
 }
@@ -1318,13 +1599,15 @@ function attackEntity(attacker, defender, isPlayer) {
   defender.hp -= dmg;
 
   if (isPlayer) {
+    state.damageDealt = (state.damageDealt || 0) + dmg;
     addLog(`Chris trifft ${defender.name} für ${dmg} Schaden! (${Math.max(0, defender.hp)}/${defender.maxHp} HP)`, '#ffd166');
     if (defender.hp <= 0) {
-      playSound('kill');
       state.kills++;
-      const goldDrop = 9 + (state.floor * 5) + Math.floor(Math.random() * 5);
-      const soulDrop = (defender.isGuardian ? 3 : 1) + Math.floor(state.floor / 3);
+      const isDragon = (defender.sprite === 'dragon');
+      const goldDrop = isDragon ? 200 : (9 + (state.floor * 5) + Math.floor(Math.random() * 5));
+      const soulDrop = isDragon ? 50 : ((defender.isGuardian ? 3 : 1) + Math.floor(state.floor / 3));
       state.player.gold += goldDrop;
+      state.goldEarned = (state.goldEarned || 0) + goldDrop;
       metaData.souls += soulDrop;
       saveMetaLocal();
 
@@ -1337,6 +1620,12 @@ function attackEntity(attacker, defender, isPlayer) {
       flashStat('stat-gold', 'blink-gold');
       state.enemies = state.enemies.filter(e => e !== defender);
       gainXp(defender.xp);
+
+      if (isDragon) {
+        triggerDragonDeathSequence(defender);
+      } else {
+        playSound('kill');
+      }
     } else {
       playSound('hit');
     }
@@ -1365,6 +1654,7 @@ function endTurn() {
     const dist = Math.hypot(p.x - e.x, p.y - e.y);
     if (dist <= 7) {
       if (dist < 1.5) {
+        blockKeyRepeat = true;
         attackEntity(e, p, false);
         if (state.gameOver) return;
       } else {
@@ -1373,6 +1663,9 @@ function endTurn() {
         const nx = e.x + dx, ny = e.y + dy;
         if (state.map[ny][nx] === 0 && !state.enemies.some(oth => oth.x === nx && oth.y === ny)) {
           e.x = nx; e.y = ny;
+          if (Math.hypot(p.x - e.x, p.y - e.y) < 1.5) {
+            blockKeyRepeat = true;
+          }
         }
       }
     }
@@ -1385,6 +1678,8 @@ function checkItems() {
   const p = state.player;
   const item = state.items.find(i => i.x === p.x && i.y === p.y);
   if (!item) return;
+
+  blockKeyRepeat = true;
 
   if (item.type === 'stairs') {
     const usedFloor = state.floor;
@@ -1400,7 +1695,8 @@ function checkItems() {
   } else if (item.type === 'broken_exit') {
     addLog(item.examineMsg, '#9e93b8');
   } else if (item.type === 'amulet') {
-    endGame(true, `Unglaublich! Chris hat alle ${MAX_FLOORS} Ebenen überlebt und das Amulett von Yendor im ${metaData.runs}. Versuch geborgen!`);
+    playSound('victory_fanfare');
+    endGame(true, `Chris hat Erz-Drache Yendor bezwungen und das legendäre Amulett von Yendor aus der Tiefe geborgen!`);
   } else if (item.price) {
     const statInfo = item.atk ? ` (+${item.atk}⚔)` : (item.def ? ` (+${item.def}🛡)` : '');
 
@@ -1500,6 +1796,7 @@ function checkItems() {
     const gAmt = 16 + (state.floor * 6);
     const sAmt = 1 + Math.floor(state.floor / 3);
     p.gold += gAmt;
+    state.goldEarned = (state.goldEarned || 0) + gAmt;
     metaData.souls += sAmt;
     saveMetaLocal();
     flashStat('stat-gold', 'blink-gold');
@@ -1545,7 +1842,7 @@ function gainXp(amt) {
 }
 
 function useItemByIndex(idx) {
-  if (!state || !state.player || state.gameOver) return;
+  if (!state || !state.player || state.gameOver || state.cutscene) return;
   const item = state.inventory[idx];
   if (!item) return;
   const p = state.player;
@@ -1553,6 +1850,7 @@ function useItemByIndex(idx) {
   if (item.type === 'potion') {
     const heal = getPotionHeal();
     p.hp = Math.min(p.maxHp, p.hp + heal);
+    state.potionsUsed = (state.potionsUsed || 0) + 1;
     playSound('item');
     flashStat('stat-hp', 'blink-green');
     addLog(`Chris trinkt einen Heiltrank (+${heal} HP).`, '#52c41a');
@@ -1580,20 +1878,102 @@ function useItemByIndex(idx) {
   updateUI();
 }
 
+// Zeichnet die Sieges-Pixelszene (Chris hält das leuchtende Amulett von Yendor hoch)
+function drawVictoryScene() {
+  const vCanvas = document.getElementById('victoryCanvas');
+  if (!vCanvas) return;
+  const vctx = vCanvas.getContext('2d');
+  vctx.fillStyle = '#09060e';
+  vctx.fillRect(0, 0, 48, 32);
+
+  // Goldener Strahlenkranz hinter dem Amulett
+  vctx.fillStyle = 'rgba(255, 209, 102, 0.18)';
+  vctx.fillRect(16, 2, 16, 16);
+  vctx.fillStyle = 'rgba(0, 245, 212, 0.25)';
+  vctx.fillRect(18, 4, 12, 12);
+
+  // Funkelnde Retro-Sterne
+  const stars = [[6, 6, '#ffd166'], [40, 7, '#00f5d4'], [10, 18, '#e07be0'], [37, 19, '#ffd166'], [14, 5, '#ffffff'], [33, 5, '#ffffff']];
+  stars.forEach(([sx, sy, col]) => {
+    vctx.fillStyle = col;
+    vctx.fillRect(sx, sy, 1, 1);
+  });
+
+  // Podest
+  vctx.fillStyle = '#3b3054';
+  vctx.fillRect(12, 27, 24, 5);
+  vctx.fillStyle = '#ffd166';
+  vctx.fillRect(14, 27, 20, 1);
+
+  // Amulett über Chris' Kopf
+  const amSpr = SPRITES.amulet;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const ch = amSpr[r][c];
+      if (ch !== '.') {
+        vctx.fillStyle = PALETTE[ch];
+        vctx.fillRect(20 + c, 4 + r, 1, 1);
+      }
+    }
+  }
+
+  // Chris darunter (Arme erhoben)
+  const plSpr = SPRITES.player;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const ch = plSpr[r][c];
+      if (ch !== '.') {
+        vctx.fillStyle = PALETTE[ch];
+        vctx.fillRect(20 + c, 19 + r, 1, 1);
+      }
+    }
+  }
+  // Erhobene Arme zum Amulett
+  vctx.fillStyle = '#118ab2';
+  vctx.fillRect(19, 22, 1, 3);
+  vctx.fillRect(28, 22, 1, 3);
+  vctx.fillStyle = '#ffffff';
+  vctx.fillRect(19, 21, 1, 1);
+  vctx.fillRect(28, 21, 1, 1);
+}
+
 function endGame(win, text) {
   state.gameOver = true;
-  const endBonus = (state.floor * 4) + state.kills + (win ? 150 : 0);
+  const endBonus = (state.floor * 4) + state.kills + (win ? 250 : 0);
   metaData.souls += endBonus;
-  if (!win) metaData.runs++;
+  const completedRunNumber = metaData.runs;
+  metaData.runs++;
+  if (win) {
+    metaData.victories = (metaData.victories || 0) + 1;
+  }
   saveMetaLocal();
 
   const vig = document.getElementById('vignette');
   if (vig) { vig.className = ''; vig.style.opacity = '0'; }
 
+  const showcase = document.getElementById('victory-showcase');
+  if (win) {
+    showcase.style.display = 'flex';
+    drawVictoryScene();
+    document.getElementById('victory-crown-text').textContent = `👑 SEGEN VON YENDOR (STUFE ${metaData.victories}): Dauerhaft +${metaData.victories * 5} HP, +${metaData.victories}⚔, +${metaData.victories}🛡!`;
+    document.getElementById('hero-stats-grid').innerHTML = `
+      <div><span>Siegreicher Run:</span> <b>#${completedRunNumber}</b></div>
+      <div><span>Helden-Stufe:</span> <b>LVL ${state.player.lvl}</b></div>
+      <div><span>Besiegte Monster:</span> <b>${state.kills} ⚔️</b></div>
+      <div><span>Gesamtschaden:</span> <b>${state.damageDealt || 0} 💥</b></div>
+      <div><span>Getrunkene Tränke:</span> <b>${state.potionsUsed || 0} 🧪</b></div>
+      <div><span>Erbeutetes Gold:</span> <b>${state.goldEarned || 0} 🪙</b></div>
+      <div><span>Benötigte Züge:</span> <b>${state.turns || 0} 👣</b></div>
+      <div><span>Seelen-Tribut:</span> <b style="color:#e07be0;">+${endBonus} 🔮</b></div>
+    `;
+  } else {
+    showcase.style.display = 'none';
+  }
+
   const overlay = document.getElementById('overlay');
   if (overlay) overlay.style.display = 'flex';
-  document.getElementById('overlay-title').textContent = win ? '🏆 CHRIS SIEGT ÜBER DIE 9 EBENEN!' : '💀 CHRIS IST GEFALLEN';
-  document.getElementById('overlay-desc').innerHTML = `${text}<br><span style="color:#e07be0; font-weight:bold;">Run-Abschlussbonus: +${endBonus} Seelen-Essenzen 🔮!</span><br>Nutze die Schatten-Schmiede für Chris' nächsten Versuch.`;
+  document.getElementById('overlay-title').textContent = win ? '🏆 TRIUMPH ÜBER DIE 9 EBENEN!' : '💀 CHRIS IST GEFALLEN';
+  document.getElementById('overlay-desc').innerHTML = `${text}<br><span style="color:#e07be0; font-weight:bold;">Run-Abschlussbonus: +${endBonus} Seelen-Essenzen 🔮!</span>`;
   updateMetaUI();
 }
 
@@ -1731,18 +2111,24 @@ function render() {
 
       const vis = state.visible[my][mx];
       if (state.map[my][mx] === 1) {
-        // Strukturierte Stein-Wand Optik
-        ctx.fillStyle = vis ? '#3b3054' : '#181424';
+        // Mehrschichtige Dungeon-Quaderstein-Optik
+        ctx.fillStyle = vis ? '#2b233d' : '#14101d';
         ctx.fillRect(sx, sy, TILE, TILE);
-        ctx.fillStyle = vis ? '#493e68' : '#221a33';
-        ctx.fillRect(sx, sy, TILE, 1);
-        ctx.fillRect(sx, sy, 1, TILE);
-        ctx.fillStyle = vis ? '#261e38' : '#0d0a14';
-        ctx.fillRect(sx + TILE - 1, sy, 1, TILE);
-        ctx.fillRect(sx, sy + TILE - 1, TILE, 1);
+        ctx.fillStyle = vis ? '#3d3257' : '#1d172b';
+        ctx.fillRect(sx + 1, sy + 1, 3, 2);
+        ctx.fillRect(sx + 5, sy + 1, 2, 2);
+        ctx.fillRect(sx + 1, sy + 5, 2, 2);
+        ctx.fillRect(sx + 4, sy + 5, 3, 2);
+        ctx.fillStyle = vis ? '#534675' : '#261f38';
+        ctx.fillRect(sx + 1, sy + 1, 3, 1);
+        ctx.fillRect(sx + 4, sy + 5, 3, 1);
       } else {
         ctx.fillStyle = vis ? '#1b1528' : '#0d0b12';
         ctx.fillRect(sx, sy, TILE, TILE);
+        if (vis && (mx + my) % 5 === 0) {
+          ctx.fillStyle = '#241c35';
+          ctx.fillRect(sx + 3, sy + 3, 1, 1);
+        }
       }
     }
   }
@@ -1756,7 +2142,17 @@ function render() {
   }
 
   for (const item of state.items) {
-    if (state.visible[item.y][item.x]) drawSprite(item.sprite || item.type, (item.x - camX) * TILE, (item.y - camY) * TILE);
+    if (state.visible[item.y][item.x]) {
+      const ix = (item.x - camX) * TILE;
+      const iy = (item.y - camY) * TILE;
+      // Pulsierende Aura um das Amulett von Yendor, sobald der Drache besiegt ist
+      if (item.type === 'amulet' && state.dragonSlain) {
+        const pulse = Math.sin(Date.now() * 0.008) > 0;
+        ctx.fillStyle = pulse ? 'rgba(255, 209, 102, 0.35)' : 'rgba(0, 245, 212, 0.35)';
+        ctx.fillRect(ix - 1, iy - 1, TILE + 2, TILE + 2);
+      }
+      drawSprite(item.sprite || item.type, ix, iy);
+    }
   }
 
   for (const e of state.enemies) {
@@ -1765,11 +2161,25 @@ function render() {
 
   drawSprite('player', (p.x - camX) * TILE, (p.y - camY) * TILE, p.facingLeft);
 
+  // Explosions- und Feuerpartikel beim Tod des Drachen zeichnen
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const pt = particles[i];
+    pt.wx += pt.vx;
+    pt.wy += pt.vy;
+    pt.life--;
+    const px = Math.round((pt.wx - camX) * TILE);
+    const py = Math.round((pt.wy - camY) * TILE);
+    ctx.fillStyle = pt.color;
+    ctx.fillRect(px, py, pt.size, pt.size);
+    if (pt.life <= 0) particles.splice(i, 1);
+  }
+
   renderMinimap();
   requestAnimationFrame(render);
 }
 
 document.getElementById('start-btn').addEventListener('click', handleStartButton);
+document.getElementById('abandon-run-btn').addEventListener('click', abandonCurrentRun);
 document.getElementById('reset-meta-btn').addEventListener('click', resetMetaProgress);
 document.getElementById('btn-buy-hp').addEventListener('click', () => buyMetaUpgrade('hp'));
 document.getElementById('btn-buy-atk').addEventListener('click', () => buyMetaUpgrade('atk'));
@@ -1786,10 +2196,10 @@ document.getElementById('btn-load').addEventListener('click', triggerLoadFile);
 document.getElementById('btn-menu').addEventListener('click', openMainMenu);
 document.getElementById('load-file-input').addEventListener('change', processLoadFile);
 
-document.getElementById('move-up').addEventListener('click', () => handleInput(0, -1));
-document.getElementById('move-down').addEventListener('click', () => handleInput(0, 1));
-document.getElementById('move-left').addEventListener('click', () => handleInput(-1, 0));
-document.getElementById('move-right').addEventListener('click', () => handleInput(1, 0));
+document.getElementById('move-up').addEventListener('click', () => handleInput(0, -1, false));
+document.getElementById('move-down').addEventListener('click', () => handleInput(0, 1, false));
+document.getElementById('move-left').addEventListener('click', () => handleInput(-1, 0, false));
+document.getElementById('move-right').addEventListener('click', () => handleInput(1, 0, false));
 
 document.getElementById('cheat-god').addEventListener('click', toggleGodMode);
 document.getElementById('cheat-prev-flr').addEventListener('click', () => cheatChangeFloor(-1));
@@ -1798,14 +2208,27 @@ document.getElementById('cheat-dragon').addEventListener('click', cheatTeleportD
 document.getElementById('cheat-heal').addEventListener('click', cheatHealAndGold);
 document.getElementById('cheat-map').addEventListener('click', cheatRevealMap);
 
-// Tastatur-Steuerung mit Einzel-Tastendruck (kein Dauerdrücken zum Angreifen/Laufen)
+let lastInputTime = 0;
+window.addEventListener('keyup', e => {
+  const map = { ArrowUp: 1, KeyW: 1, ArrowDown: 1, KeyS: 1, ArrowLeft: 1, KeyA: 1, ArrowRight: 1, KeyD: 1 };
+  if (map[e.code]) {
+    blockKeyRepeat = false;
+  }
+});
+
 window.addEventListener('keydown', e => {
   const map = { ArrowUp: [0,-1], KeyW: [0,-1], ArrowDown: [0,1], KeyS: [0,1], ArrowLeft: [-1,0], KeyA: [-1,0], ArrowRight: [1,0], KeyD: [1,0] };
   if (map[e.code]) {
     e.preventDefault();
-    handleInput(...map[e.code]);
+    if (e.repeat && blockKeyRepeat) return;
+    const now = Date.now();
+    if (e.repeat && now - lastInputTime < 135) return;
+    lastInputTime = now;
+    handleInput(map[e.code][0], map[e.code][1], e.repeat);
     return;
   }
+
+  if (e.repeat) return;
 
   if (e.code === 'KeyH') {
     drinkPotionShortcut();
