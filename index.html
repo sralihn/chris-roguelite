@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHRIS - Die 9 Ebenen (Rogue-lite Edition)</title>
+<style>
+  :root {
+    --bg: #0d0b12;
+    --panel: #181424;
+    --border: #3b3054;
+    --text: #e2dbef;
+    --accent: #f4b41b;
+    --danger: #e83b3b;
+    --heal: #52c41a;
+    --gold: #f39c12;
+    --meta: #b5179e;
+  }
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    padding: 12px;
+    gap: 12px;
+  }
+  #game-wrapper {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    max-width: 1100px;
+    margin: auto;
+    gap: 12px;
+  }
+  #left-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 8px;
+    height: 100%;
+  }
+  #canvas-container {
+    position: relative;
+    flex: 1;
+    background: #050408;
+    border: 3px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+  }
+  #gameCanvas {
+    image-rendering: pixelated;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* Mini-Map unten links */
+  #minimapCanvas {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    width: 128px;
+    height: 96px;
+    background: rgba(10, 8, 16, 0.85);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    image-rendering: pixelated;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  }
+
+  /* Herzschlag-Vignette bei niedrigem Leben */
+  #vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 45px rgba(232, 59, 59, 0.75), inset 0 0 16px rgba(232, 59, 59, 0.9);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 4;
+  }
+  @keyframes heartbeat {
+    0% { opacity: 0.25; }
+    50% { opacity: 0.85; }
+    100% { opacity: 0.25; }
+  }
+  .vignette-pulse {
+    animation: heartbeat 1.15s ease-in-out infinite;
+  }
+  .vignette-pulse-fast {
+    animation: heartbeat 0.65s ease-in-out infinite;
+  }
+
+  #log-box {
+    height: 120px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+    scroll-behavior: smooth;
+  }
+  .log-entry { opacity: 0.65; flex-shrink: 0; transition: opacity 0.2s; }
+  .log-entry:last-child { opacity: 1; font-weight: bold; }
+
+  #right-pane {
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+  }
+  .panel-box {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  h3 {
+    font-size: 0.85rem;
+    color: #9e93b8;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  @keyframes flash-green { 0%, 100% { color: var(--heal); text-shadow: 0 0 8px var(--heal); transform: scale(1.05); } 50% { color: #fff; text-shadow: 0 0 12px #fff; transform: scale(1.1); } }
+  @keyframes flash-gold { 0%, 100% { color: var(--gold); text-shadow: 0 0 8px var(--gold); transform: scale(1.05); } 50% { color: #fff; text-shadow: 0 0 12px #fff; transform: scale(1.1); } }
+  @keyframes flash-red { 0%, 100% { color: var(--danger); text-shadow: 0 0 8px var(--danger); transform: scale(1.05); } 50% { color: #fff; text-shadow: 0 0 12px #fff; transform: scale(1.1); } }
+  @keyframes flash-meta { 0%, 100% { color: var(--meta); text-shadow: 0 0 8px var(--meta); transform: scale(1.05); } 50% { color: #fff; text-shadow: 0 0 12px #fff; transform: scale(1.1); } }
+  
+  .blink-green { animation: flash-green 0.7s ease-in-out infinite alternate; }
+  .blink-gold { animation: flash-gold 0.7s ease-in-out infinite alternate; }
+  .blink-red { animation: flash-red 0.7s ease-in-out infinite alternate; }
+  .blink-meta { animation: flash-meta 0.7s ease-in-out infinite alternate; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: bold;
+  }
+  .stats-grid span {
+    cursor: help;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: color 0.3s, text-shadow 0.3s, transform 0.3s;
+    display: inline-block;
+  }
+  .stat-hp { color: #ff6b6b; }
+  .stat-atk { color: #ffd166; }
+  .stat-def { color: #4ecdc4; }
+  .stat-gold { color: var(--gold); }
+  .stat-xp { color: #00f5d4; grid-column: span 2; }
+
+  #inventory-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .item-list {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+  }
+  .item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #120f1c;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid #282138;
+    cursor: pointer;
+  }
+  .item-row:hover { background: #221a33; border-color: var(--accent); }
+
+  /* Geheimes Cheat-Menü */
+  #cheat-box {
+    display: none;
+    border-color: #00f5d4;
+    background: #121c24;
+  }
+  #cheat-box h3 {
+    color: #00f5d4;
+    border-bottom-color: #1f4e5b;
+  }
+  .cheat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .cheat-btn {
+    background: #1a2c38;
+    border: 1px solid #00f5d4;
+    color: #e2dbef;
+    padding: 5px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: bold;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .cheat-btn:hover {
+    background: #244354;
+  }
+  .cheat-btn.active-cheat {
+    background: #00f5d4;
+    color: #0d0b12;
+  }
+  .cheat-span-2 {
+    grid-column: span 2;
+  }
+
+  #controls-box {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin-top: auto;
+  }
+  .btn {
+    background: #231c33;
+    border: 2px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: bold;
+    padding: 8px 0;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #0d0a14;
+    transition: transform 0.05s;
+  }
+  .btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #0d0a14;
+    background: var(--border);
+  }
+
+  .file-io-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .file-btn {
+    background: #29223d;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 5px 2px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: bold;
+    text-align: center;
+  }
+  .file-btn:hover { background: #392f54; }
+
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(13, 11, 18, 0.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+    z-index: 10;
+    gap: 10px;
+  }
+  #overlay h2 {
+    font-size: 1.55rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+  #overlay p {
+    font-size: 0.83rem;
+    line-height: 1.35;
+    max-width: 400px;
+    color: #ccc4e0;
+  }
+  .main-btn {
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    background: var(--accent);
+    color: #0d0b12;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 4px 0 #b5830e;
+    margin-top: 2px;
+  }
+  .main-btn:hover { background: #ffc233; }
+  .main-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b5830e; }
+
+  .reset-btn {
+    background: #3b1824;
+    border: 1px solid #e83b3b;
+    color: #ff8787;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .reset-btn:hover { background: #521c2e; color: #ff6b6b; }
+  
+  .meta-shop {
+    background: #161121;
+    border: 2px solid #5a2a75;
+    padding: 10px 14px;
+    border-radius: 6px;
+    width: 100%;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  }
+  .meta-title { color: #e07be0; font-size: 0.85rem; font-weight: bold; letter-spacing: 1px; }
+  .meta-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; text-align: left; }
+  .meta-btn {
+    background: #7b2cbf;
+    color: #fff;
+    border: 1px solid #9d4edd;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 78px;
+    text-align: center;
+  }
+  .meta-btn:hover { background: #9d4edd; }
+  .meta-btn:active { transform: scale(0.95); }
+
+  #version-tag {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 0.65rem;
+    color: #6c6085;
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  .sound-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<button class="sound-toggle" id="sound-btn" type="button" title="Schaltet die Retro-Soundeffekte beim Laufen und Kämpfen ein oder aus.">🔊 Ton: AN</button>
+<input type="file" id="load-file-input" style="display: none;" accept=".json">
+
+<div id="game-wrapper">
+  <div id="left-pane">
+    <div id="canvas-container">
+      <canvas id="gameCanvas" width="312" height="234"></canvas>
+      <canvas id="minimapCanvas" width="64" height="48"></canvas>
+      <div id="vignette"></div>
+      <div id="overlay">
+        <h2 id="overlay-title">CHRIS - DIE 9 EBENEN</h2>
+        <p id="overlay-desc">9 tödliche Ebenen trennen Chris vom Amulett von Yendor. Stirb, sammle Seelen-Essenzen und werde mit jedem Run stärker!</p>
+        
+        <div class="meta-shop">
+          <div class="meta-title" title="Upgrades, die du hier kaufst, bleiben Chris auch nach dem Tod für alle zukünftigen Versuche dauerhaft erhalten!">⚒️ SCHATTEN-SCHMIEDE (Dauerhafte Boni)</div>
+          <div style="font-size: 0.82rem; color: var(--gold); font-weight: bold;" id="meta-souls-display" title="Seelen-Essenzen sammelst du im Dungeon durch besiegte Monster, Goldschätze und gemeisterte Ebenen.">Seelen-Essenzen: 0 🔮</div>
+          
+          <div class="meta-row" title="Erhöht Chris' maximale Lebenspunkte zu Beginn jedes neuen Versuchs dauerhaft um +8 HP.">
+            <span>❤️ Vitalität (+8 Start-HP) [St. <span id="meta-hp-lvl">0</span>]</span>
+            <button class="meta-btn" id="btn-buy-hp" type="button" title="Klicken, um Chris' Start-Lebenspunkte dauerhaft um +8 zu erhöhen.">15 🔮</button>
+          </div>
+          <div class="meta-row" title="Erhöht Chris' Grundschaden im Nahkampf dauerhaft um +1 Angriff.">
+            <span>⚔️ Kampfkraft (+1 Angriff) [St. <span id="meta-atk-lvl">0</span>]</span>
+            <button class="meta-btn" id="btn-buy-atk" type="button" title="Klicken, um Chris' Grundangriff dauerhaft um +1 zu erhöhen.">19 🔮</button>
+          </div>
+          <div class="meta-row" title="Reduziert den erlittenen Schaden durch feindliche Treffer dauerhaft um 1 Punkt.">
+            <span>🛡️ Eisenhaut (+1 Abwehr) [St. <span id="meta-def-lvl">0</span>]</span>
+            <button class="meta-btn" id="btn-buy-def" type="button" title="Klicken, um Chris' Grundabwehr dauerhaft um +1 zu erhöhen.">21 🔮</button>
+          </div>
+          <div class="meta-row" title="Verstärkt die Heilwirkung jedes getrunkenen Heiltranks dauerhaft um +6 Lebenspunkte.">
+            <span>🧪 Alchemie (+6 Trank-Heilung) [St. <span id="meta-pot-lvl">0</span>]</span>
+            <button class="meta-btn" id="btn-buy-pot" type="button" title="Klicken, damit Heiltränke dauerhaft +6 zusätzliche Lebenspunkte wiederherstellen.">15 🔮</button>
+          </div>
+        </div>
+
+        <button class="main-btn" id="start-btn" type="button" title="Beginnt ein neues Abenteuer für Chris auf Ebene 1 mit allen Boni aus der Schatten-Schmiede.">RUN STARTEN (VERSUCH #1)</button>
+        <button class="reset-btn" id="reset-meta-btn" type="button" title="Löscht alle gesammelten Seelen-Essenzen und Schmiede-Upgrades, um komplett bei Null zu beginnen.">🔄 SPIEL KOMPLETT NEU STARTEN (RESET)</button>
+        <div id="version-tag">v1.8.5</div>
+      </div>
+    </div>
+    <div id="log-box" title="Ereignis-Protokoll: Hier siehst du Kampfergebnisse, gefundene Schätze und Hinweise."></div>
+  </div>
+
+  <div id="right-pane">
+    <div class="panel-box">
+      <h3><span>CHRIS - STATUS</span> <span id="stat-runs" style="color:#e07be0;" title="Zählt, im wievielten Anlauf sich Chris aktuell befindet.">Run #1</span></h3>
+      <div class="stats-grid">
+        <span class="stat-hp" id="stat-hp" title="Lebenspunkte (HP): Sinken sie auf 0, endet dieser Durchlauf.">♥ 20/20</span>
+        <span class="stat-gold" id="stat-gold" title="Goldmünzen: Währung für den aktuellen Run.">🪙 0</span>
+        <span class="stat-atk" id="stat-atk" title="Angriffswert (Nahkampfschaden).">⚔ 4</span>
+        <span class="stat-def" id="stat-def" title="Abwehrwert (Rüstungsschaden-Reduktion).">🛡 0</span>
+        <span style="color: #c792ea;" id="stat-flr">Ebene 1 / 9</span>
+        <span style="color: #e07be0;" id="stat-souls">🔮 0</span>
+        <span class="stat-xp" id="stat-xp" title="Erfahrungspunkte (XP) & Charakterstufe.">⭐ LVL 1 (0/15 XP)</span>
+      </div>
+      <div class="file-io-row">
+        <button class="file-btn" id="btn-save" type="button" title="Spielstand als Datei speichern">💾 SPEICHERN</button>
+        <button class="file-btn" id="btn-load" type="button" title="Spielstand aus Datei laden">📂 LADEN</button>
+        <button class="file-btn" id="btn-menu" type="button" title="Ins Hauptmenü (Schmiede) wechseln">🏠 MENÜ</button>
+      </div>
+    </div>
+
+    <div class="panel-box" id="inventory-box">
+      <h3>INVENTAR (1 KLICK / [H] = HEILEN)</h3>
+      <div class="item-list" id="item-list"></div>
+    </div>
+
+    <div class="panel-box" id="cheat-box">
+      <h3><span>🕹️ DEV-CHEATS</span> <span>TASTE / KLICK</span></h3>
+      <div class="cheat-grid">
+        <button class="cheat-btn cheat-span-2" id="cheat-god" type="button">[G] Godmode: AUS</button>
+        <button class="cheat-btn" id="cheat-prev-flr" type="button">[Q] Ebene -1</button>
+        <button class="cheat-btn" id="cheat-next-flr" type="button">[E] Ebene +1</button>
+        <button class="cheat-btn cheat-span-2" id="cheat-dragon" type="button">[Y] Direkt zum Drachen (Ebene 9)</button>
+        <button class="cheat-btn" id="cheat-heal" type="button">[F] Vollheilung & Gold</button>
+        <button class="cheat-btn" id="cheat-map" type="button">[K] Karte aufdecken</button>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <h3>STEUERUNG</h3>
+      <div id="controls-box" style="grid-template-columns: repeat(3, 1fr);">
+        <div></div>
+        <button class="btn" id="move-up" type="button">▲</button>
+        <div></div>
+        <button class="btn" id="move-left" type="button">◀</button>
+        <div></div>
+        <button class="btn" id="move-right" type="button">▶</button>
+        <div></div>
+        <button class="btn" id="move-down" type="button">▼</button>
+        <div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimapCanvas');
+const minictx = minimapCanvas.getContext('2d');
+
+const TILE = 8;
+const VIEW_W = 39;
+const VIEW_H = 29;
+const MAP_W = 64;
+const MAP_H = 48;
+const MAX_FLOORS = 9;
+
+let audioCtx = null;
+let soundEnabled = true;
+
+const CHEAT_SEQUENCE = ['U', 'D', 'U', 'D', 'L', 'R', 'L', 'R', 'D', 'U'];
+let cheatHistory = [];
+let cheatUnlocked = false;
+let godMode = false;
+
+const statTimers = {};
+function flashStat(id, className) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('blink-green', 'blink-gold', 'blink-red', 'blink-meta');
+  void el.offsetWidth;
+  el.classList.add(className);
+  if (statTimers[id]) clearTimeout(statTimers[id]);
+  statTimers[id] = setTimeout(() => {
+    el.classList.remove(className);
+  }, 3000);
+}
+
+let metaData = {
+  souls: 0, runs: 1, hpLvl: 0, atkLvl: 0, defLvl: 0, potLvl: 0
+};
+
+function loadMetaLocal() {
+  try {
+    const savedMeta = localStorage.getItem('hack1984_meta_v4');
+    if (savedMeta) {
+      const parsed = JSON.parse(savedMeta);
+      metaData.souls = Number(parsed.souls) || 0;
+      metaData.runs = Number(parsed.runs) || 1;
+      metaData.hpLvl = Number(parsed.hpLvl) || 0;
+      metaData.atkLvl = Number(parsed.atkLvl) || 0;
+      metaData.defLvl = Number(parsed.defLvl) || 0;
+      metaData.potLvl = Number(parsed.potLvl) || 0;
+    }
+  } catch(e) {}
+}
+
+function saveMetaLocal() {
+  try {
+    localStorage.setItem('hack1984_meta_v4', JSON.stringify(metaData));
+  } catch(e) {}
+}
+
+function resetMetaProgress() {
+  if (confirm('Möchtest du wirklich das komplette Spiel zurücksetzen? Alle Seelen, Upgrades und Fortschritte gehen verloren!')) {
+    metaData = { souls: 0, runs: 1, hpLvl: 0, atkLvl: 0, defLvl: 0, potLvl: 0 };
+    saveMetaLocal();
+    updateMetaUI();
+    localStorage.removeItem('hack1984_meta_v4');
+    addLog('Spiel wurde komplett auf Anfang zurückgesetzt.', '#ff6b6b');
+    
+    const overlay = document.getElementById('overlay');
+    if (overlay) overlay.style.display = 'flex';
+    document.getElementById('overlay-title').textContent = 'CHRIS - DIE 9 EBENEN';
+    document.getElementById('overlay-desc').textContent = '9 tödliche Ebenen trennen Chris vom Amulett von Yendor. Stirb, sammle Seelen-Essenzen und werde mit jedem Run stärker!';
+    document.getElementById('start-btn').textContent = 'RUN STARTEN (VERSUCH #1)';
+  }
+}
+
+function getUpgradeCost(type) {
+  if (type === 'hp') return 15 + metaData.hpLvl * 10;
+  if (type === 'atk') return 19 + metaData.atkLvl * 13;
+  if (type === 'def') return 21 + metaData.defLvl * 15;
+  if (type === 'pot') return 15 + metaData.potLvl * 10;
+  return 999;
+}
+
+function updateMetaUI() {
+  document.getElementById('meta-souls-display').textContent = `Seelen-Essenzen: ${metaData.souls} 🔮`;
+  document.getElementById('meta-hp-lvl').textContent = metaData.hpLvl;
+  document.getElementById('meta-atk-lvl').textContent = metaData.atkLvl;
+  document.getElementById('meta-def-lvl').textContent = metaData.defLvl;
+  document.getElementById('meta-pot-lvl').textContent = metaData.potLvl;
+
+  document.getElementById('btn-buy-hp').textContent = `${getUpgradeCost('hp')} 🔮`;
+  document.getElementById('btn-buy-atk').textContent = `${getUpgradeCost('atk')} 🔮`;
+  document.getElementById('btn-buy-def').textContent = `${getUpgradeCost('def')} 🔮`;
+  document.getElementById('btn-buy-pot').textContent = `${getUpgradeCost('pot')} 🔮`;
+
+  const hasActiveRun = (state && state.player && !state.gameOver);
+  document.getElementById('start-btn').textContent = hasActiveRun ? 'WEITERSPIELEN' : `RUN STARTEN (VERSUCH #${metaData.runs})`;
+  document.getElementById('stat-runs').textContent = `Run #${metaData.runs}`;
+  document.getElementById('stat-souls').textContent = `🔮 ${metaData.souls}`;
+}
+
+function openMainMenu() {
+  if (!state || !state.player) return;
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.style.display = 'flex';
+  document.getElementById('overlay-title').textContent = 'CHRIS - DIE 9 EBENEN (PAUSE)';
+  document.getElementById('overlay-desc').textContent = 'Besuche die Schatten-Schmiede oder setze deinen Run fort.';
+  updateMetaUI();
+  addLog('Ins Hauptmenü gewechselt. Spiel pausiert.', '#c792ea');
+}
+
+function handleStartButton() {
+  const hasActiveRun = (state && state.player && !state.gameOver);
+  if (hasActiveRun) {
+    const overlay = document.getElementById('overlay');
+    if (overlay) overlay.style.display = 'none';
+    addLog('Run fortgesetzt.', '#52c41a');
+  } else {
+    initGame();
+  }
+}
+
+function buyMetaUpgrade(type) {
+  const cost = getUpgradeCost(type);
+  if (metaData.souls < cost) {
+    addLog(`Nicht genügend Seelen-Essenzen! (Benötigt: ${cost} 🔮)`, '#ff6b6b');
+    return;
+  }
+  metaData.souls -= cost;
+  playSound('lvlup');
+
+  const inGame = (state && state.player && !state.gameOver);
+
+  if (type === 'hp') {
+    metaData.hpLvl++;
+    addLog(`Schatten-Schmiede: Chris' Vitalität auf Stufe ${metaData.hpLvl} (+8 Start-HP)!`, '#e07be0');
+    if (inGame) {
+      state.player.maxHp += 8;
+      state.player.hp += 8;
+      flashStat('stat-hp', 'blink-green');
+    }
+  } else if (type === 'atk') {
+    metaData.atkLvl++;
+    addLog(`Schatten-Schmiede: Chris' Kampfkraft auf Stufe ${metaData.atkLvl} (+1 Angriff)!`, '#e07be0');
+    if (inGame) {
+      recalcStats();
+      flashStat('stat-atk', 'blink-gold');
+    }
+  } else if (type === 'def') {
+    metaData.defLvl++;
+    addLog(`Schatten-Schmiede: Chris' Eisenhaut auf Stufe ${metaData.defLvl} (+1 Abwehr)!`, '#e07be0');
+    if (inGame) {
+      recalcStats();
+      flashStat('stat-def', 'blink-meta');
+    }
+  } else if (type === 'pot') {
+    metaData.potLvl++;
+    addLog(`Schatten-Schmiede: Alchemie auf Stufe ${metaData.potLvl} (+6 Heilung)!`, '#e07be0');
+  }
+  
+  saveMetaLocal();
+  updateMetaUI();
+  if (inGame) updateUI();
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+    if (type === 'step') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
+    } else if (type === 'hit') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'kill') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(100, now);
+      osc.frequency.exponentialRampToValueAtTime(20, now + 0.25);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+      osc.start(now); osc.stop(now + 0.25);
+    } else if (type === 'item') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+      osc.start(now); osc.stop(now + 0.15);
+    } else if (type === 'coin') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(987.77, now);
+      osc.frequency.setValueAtTime(1318.51, now + 0.08);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+      osc.start(now); osc.stop(now + 0.2);
+    } else if (type === 'lvlup') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(261.63, now);
+      osc.frequency.setValueAtTime(329.63, now + 0.1);
+      osc.frequency.setValueAtTime(392.00, now + 0.2);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+      osc.start(now); osc.stop(now + 0.35);
+    } else if (type === 'curse') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.linearRampToValueAtTime(95, now + 0.28);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.28);
+      osc.start(now); osc.stop(now + 0.28);
+    } else if (type === 'collapse') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(32, now + 0.32);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.32);
+      osc.start(now); osc.stop(now + 0.32);
+    }
+  } catch(e) {}
+}
+
+const SPRITES = {
+  player:         ["..YYYY..", ".YYYYYY.", ".YWWWWY.", ".YWKWWK.", "..YYYY..", ".BBBBBB.", ".B.BB.B.", "..W..W.."],
+  rat:            ["........", "........", "..AAAA..", ".ARAAAA.", "AAAAAAA.", ".A..A..A", ".......A", "........"],
+  goblin:         ["........", ".G....G.", "..GGGG..", ".GRGGRG.", "..GGGG..", "...GG...", "..G..G..", "........"],
+  orc:            ["..DDDD..", ".DDDDDD.", ".DRDDRD.", ".DDDDDD.", "..WWWW..", ".DDDDDD.", ".D.DD.D.", "..D..D.."],
+  orc_chief:      [".Y.YY.Y.", ".YYYYYY.", ".DDDDDD.", ".DRDDRD.", "..WWWW..", ".DDDDDD.", ".D.DD.D.", "..D..D.."],
+  troll:          [".OOOOOO.", "OOOOOOOO", "ORKOOORK", "OOOOOOOO", ".OOWWOO.", ".OOOOOO.", "OO.OO.OO", "OO....OO"],
+  cave_troll:     [".MMMMMM.", "MMMMMMMM", "MRKMMMRK", "MMMMMMMM", ".MMWWMM.", ".MMMMMM.", "MM.MM.MM", "MM....MM"],
+  knight:         [".CCCCCC.", "CCCCCCCC", "CKRRRRKC", "CCCCCCCC", ".CCCCCC.", "CCCCCCCC", ".C.CC.C.", ".C....C."],
+  lich:           ["..YYYY..", ".PPPPPP.", "PPKYYKPP", ".PPPPPP.", "..PPPP..", ".P.PP.P.", "P..PP..P", "...PP..."],
+  shadow:         ["..PPPP..", ".PPPPPP.", "PPWRRWPP", "PPPPPPPP", ".PPPPPP.", "..P..P..", ".P....P.", "........"],
+  dragon:         ["RR..RR..", "RRRRRRRR", ".RYYYYR.", ".RKWKKR.", "RRRRRRRR", ".R.RR.R.", "R......R", "........"],
+  shopkeeper:     ["..YYYY..", ".YYYYYY.", ".YBBWWY.", ".YKKKKK.", "..YYYY..", "..PPPP..", ".P.PP.P.", "..P..P.."],
+  potion:         ["...WW...", "...WW...", "..RRRR..", ".RRRRRR.", ".RRWWRR.", ".RRRRRR.", "..RRRR..", "........"],
+  scroll:         ["........", ".WWWWWW.", ".WKKKKW.", ".WKWKKW.", ".WKKKKW.", ".WWWWWW.", "........", "........"],
+  mystery_scroll: ["........", ".PPPPPP.", ".PYYYYP.", ".PYPYYP.", ".PYYYYP.", ".PPPPPP.", "........", "........"],
+  weapon:         [".......W", "......W.", ".....W..", "....W...", "...W....", "..W.....", ".K......", "K......."],
+  armor:          ["..CCCC..", ".CCCCCC.", ".C.CC.C.", ".CCCCCC.", "..CCCC..", "..C..C..", "........", "........"],
+  gold:           ["........", "..YYYY..", ".YYYYYY.", ".YYYYYY.", "..YYYY..", "........", "........", "........"],
+  amulet:         ["..YYYY..", ".Y....Y.", ".Y.CC.Y.", "..YCCY..", "..YYYY..", "...YY...", "........", "........"],
+  ladder_wood:         [".O....O.", ".OOOOOO.", ".O....O.", ".OOOOOO.", ".O....O.", ".OOOOOO.", ".O....O.", ".O....O."],
+  ladder_wood_broken:  ["........", ".O....O.", "..OO....", "....OO..", ".O....O.", "O..OO...", ".OO..OO.", "........"],
+  rope:                ["...YY...", "...YY...", "..YYYY..", "...YY...", "...YY...", "..YYYY..", "...YY...", "...YY..."],
+  rope_broken:         ["...YY...", "....Y...", "........", "........", "...YY...", "..YY.Y..", ".YY..YY.", "........"],
+  stairs_stone:        ["KKKKKKKK", "KAAAAWAK", "KAAKKKKK", "KAAAAWAK", "KAAKKKKK", "KAAAAWAK", "K......K", "KKKKKKKK"],
+  stairs_stone_broken: ["KKKKKKKK", "KAA..AAK", "K.AAAA.K", "KAA..AAK", "K.AAAA.K", "KAA.AAAK", "K.AAAA.K", "KKKKKKKK"],
+  chain:               ["...CC...", "..C..C..", "...CC...", "...CC...", "..C..C..", "...CC...", "...CC...", "..C..C.."],
+  chain_broken:        ["...CC...", "........", "........", "....C...", "..C..C..", ".CC..CC.", ".C.CC.C.", "........"],
+  ladder_iron:         [".A....A.", ".AAAAAA.", ".A....A.", ".AAAAAA.", ".A....A.", ".AAAAAA.", ".A....A.", ".A....A."],
+  ladder_iron_broken:  ["........", ".A....A.", "..AA....", "....AA..", ".A....A.", "A..AA...", ".AA..AA.", "........"],
+  winch_rope:          ["..CCCC..", "...WW...", "...WW...", "...WW...", "...WW...", "...WW...", "...WW...", "...WW..."],
+  winch_rope_broken:   ["..CCCC..", "...W....", "........", "........", "....W...", "..WW.W..", ".WW..WW.", "........"],
+  stairs_spiral:       ["KKKKKKKK", "KWWWWWWK", "KWKKKKWK", "KWK..KWK", "KWK..KWK", "KWKKKKWK", "K......K", "KKKKKKKK"],
+  stairs_spiral_broken:["KKKKKKKK", "KAA..AAK", "K..AA..K", "K.AAAA.K", "KAA..AAK", "K.AAAA.K", "KAA..AAK", "KKKKKKKK"],
+  stairs_rune:         ["KKKKKKKK", "KRRRRRRK", "KRYKKYRK", "KRRRRRRK", "KRYKKYRK", "KRRRRRRK", "K......K", "KKKKKKKK"],
+  stairs_rune_broken:  ["KKKKKKKK", "KRR..RRK", "K.RRRR.K", "KRY..YRK", "K.RRRR.K", "KRR.RRRK", "K.RRRR.K", "KKKKKKKK"],
+  blood:               ["........", "..R..R..", ".RRRRRR.", "..RRRRR.", ".RRRRRR.", "..RR..R.", "...R....", "........"]
+};
+
+const PALETTE = {
+  'W': '#ffffff', 'K': '#0d0b12', 'Y': '#ffd166', 'B': '#118ab2',
+  'G': '#06d6a0', 'P': '#b5179e', 'D': '#52b788', 'R': '#e63946',
+  'O': '#e67e22', 'C': '#4ecdc4', 'A': '#a398b8', 'M': '#8e1c1c'
+};
+
+const FLOOR_TRANSITIONS = {
+  1: { name: 'Morsche Holzleiter', intactSprite: 'ladder_wood', brokenSprite: 'ladder_wood_broken', breakMsg: 'Unter Chris\' Gewicht splittern die morschen Sprossen – die Holzleiter bricht krachend zusammen! Kein Weg zurück.', examineMsg: 'Die zersplitterten Reste der Holzleiter von Ebene 1. Hier kommt Chris nicht mehr hoch.' },
+  2: { name: 'Altes Hanfseil', intactSprite: 'rope', brokenSprite: 'rope_broken', breakMsg: 'Kaum kommt Chris unten an, reißt das durchgescheuerte Hanfseil an der Felskante ab und fällt schlaff zu Boden!', examineMsg: 'Das abgerissene Hanfseil liegt nutzlos am Boden. Der Schacht nach oben ist unerreichbar.' },
+  3: { name: 'Steintreppe', intactSprite: 'stairs_stone', brokenSprite: 'stairs_stone_broken', breakMsg: 'Ein dumpfes Grollen! Die Decke hinter Chris gibt nach und verschüttet die Steintreppe unter schweren Felsbrocken!', examineMsg: 'Schwere Felsbrocken versperren die eingestürzte Steintreppe nach Ebene 3.' },
+  4: { name: 'Rostige Eisenkette', intactSprite: 'chain', brokenSprite: 'chain_broken', breakMsg: 'Der rostige Wandanker in der Decke bricht aus dem Stein – die schwere Eisenkette rasselt klirrend auf den Boden!', examineMsg: 'Ein Haufen rostiger Kettenglieder. Der Rückweg nach Ebene 4 ist abgeschnitten.' },
+  5: { name: 'Eisenbeschlagene Leiter', intactSprite: 'ladder_iron', brokenSprite: 'ladder_iron_broken', breakMsg: 'Die eisernen Halterungen kreischen und reißen aus der feuchten Schachtwand – die Leiter stürzt verbogen in die Tiefe!', examineMsg: 'Die verbogene Eisenleiter liegt zertrümmert am Boden.' },
+  6: { name: 'Mithril-Seilwinde', intactSprite: 'winch_rope', brokenSprite: 'winch_rope_broken', breakMsg: 'Das Zahnrad der alten Seilwinde über Chris blockiert mit einem Funkenschlag – das Seil schnellt abgerissen herab!', examineMsg: 'Das gerissene Seil der blockierten Winde. Kein Weg zurück nach oben.' },
+  7: { name: 'Uralte Wendeltreppe', intactSprite: 'stairs_spiral', brokenSprite: 'stairs_spiral_broken', breakMsg: 'Eine unsichtbare magische Druckwelle lässt die uralten Stufen hinter Chris wie Glas zu Staub zerfallen!', examineMsg: 'Nur noch feiner Steinstaub zeugt von der einstigen Wendeltreppe.' },
+  8: { name: 'Runen-Stufen', intactSprite: 'stairs_rune', brokenSprite: 'stairs_rune_broken', breakMsg: 'Die glühende Hitze des Erz-Drachen lässt das Gestein schmelzen! Der Rückweg versiegelt sich hinter Chris.', examineMsg: 'Geschmolzenes, glühendes Gestein versiegelt den Rückweg. Nur der Sieg über Yendor bleibt!' }
+};
+
+const ENEMY_POOLS = {
+  1: [ { name: 'Schatten-Ratte', sprite: 'rat', hp: 9, atk: 5, def: 0, xp: 6 }, { name: 'Goblinsucher', sprite: 'goblin', hp: 13, atk: 6, def: 1, xp: 9 } ],
+  2: [ { name: 'Schatten-Ratte', sprite: 'rat', hp: 16, atk: 8, def: 1, xp: 9 }, { name: 'Goblinsucher', sprite: 'goblin', hp: 21, atk: 10, def: 2, xp: 12 } ],
+  3: [ { name: 'Goblinsucher', sprite: 'goblin', hp: 24, atk: 12, def: 2, xp: 14 }, { name: 'Ork-Berserker', sprite: 'orc', hp: 30, atk: 14, def: 3, xp: 18 } ],
+  4: [ { name: 'Ork-Berserker', sprite: 'orc', hp: 32, atk: 15, def: 3, xp: 19 }, { name: 'Ork-Kriegsherr', sprite: 'orc_chief', hp: 40, atk: 17, def: 4, xp: 24 } ],
+  5: [ { name: 'Ork-Kriegsherr', sprite: 'orc_chief', hp: 43, atk: 18, def: 4, xp: 26 }, { name: 'Dunkel-Troll', sprite: 'troll', hp: 52, atk: 21, def: 5, xp: 33 } ],
+  6: [ { name: 'Dunkel-Troll', sprite: 'troll', hp: 54, atk: 22, def: 5, xp: 35 }, { name: 'Höhlen-Troll', sprite: 'cave_troll', hp: 64, atk: 25, def: 6, xp: 44 } ],
+  7: [ { name: 'Höhlen-Troll', sprite: 'cave_troll', hp: 66, atk: 26, def: 7, xp: 48 }, { name: 'Todesritter', sprite: 'knight', hp: 77, atk: 29, def: 8, xp: 58 } ],
+  8: [ { name: 'Todesritter', sprite: 'knight', hp: 79, atk: 29, def: 8, xp: 60 }, { name: 'Schatten-Lich', sprite: 'lich', hp: 91, atk: 33, def: 9, xp: 72 } ],
+  9: [ { name: 'Todesritter', sprite: 'knight', hp: 91, atk: 32, def: 9, xp: 75 }, { name: 'Schatten-Lich', sprite: 'lich', hp: 104, atk: 36, def: 10, xp: 90 } ]
+};
+
+let state = {};
+let selectedItemIdx = null;
+
+function addLog(msg, color = '#e2dbef') {
+  const box = document.getElementById('log-box');
+  if (!box) return;
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.style.color = color;
+  div.textContent = '> ' + msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function getBaseAtk() { return 3 + metaData.atkLvl; }
+function getBaseDef() { return 0 + metaData.defLvl; }
+function getPotionHeal() { return 13 + metaData.potLvl * 6; }
+
+function recalcStats() {
+  if (!state || !state.player) return;
+  const p = state.player;
+  p.atk = Math.max(1, getBaseAtk() + (p.levelAtkBonus || 0) + (p.scrollAtkBonus || 0) + (p.weaponAtk || 0));
+  p.def = getBaseDef() + (p.scrollDefBonus || 0) + (p.armorDef || 0);
+}
+
+function initGame() {
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.style.display = 'none';
+  const vTag = document.getElementById('version-tag');
+  if (vTag) vTag.style.display = 'none';
+  const vig = document.getElementById('vignette');
+  if (vig) { vig.className = ''; vig.style.opacity = '0'; }
+  selectedItemIdx = null;
+  cheatHistory = [];
+  
+  const startHp = 20 + (metaData.hpLvl * 8);
+
+  state = {
+    floor: 1,
+    gameOver: false,
+    kills: 0,
+    player: {
+      x: 0, y: 0,
+      facingLeft: false,
+      hp: startHp, maxHp: startHp,
+      atk: getBaseAtk() + 1, def: getBaseDef(),
+      weaponAtk: 1, armorDef: 0,
+      scrollAtkBonus: 0, scrollDefBonus: 0, levelAtkBonus: 0,
+      gold: 0, lvl: 1, xp: 0, nextXp: 15,
+      equippedWeapon: 'Rostiger Dolch', equippedArmor: null
+    },
+    map: [], visible: [], explored: [],
+    enemies: [], items: [], bloodstains: [],
+    inventory: [
+      { name: 'Heiltrank', type: 'potion', count: 1, desc: 'Ein roter Alchemie-Trank. Stellt HP wieder her.' },
+      { name: 'Rostiger Dolch', type: 'weapon', atk: 1, desc: 'Eine einfache Startklinge (+1 Angriff).' }
+    ]
+  };
+
+  recalcStats();
+  generateFloor();
+  addLog(`Run #${metaData.runs}: Chris betritt den Dungeon! Rostiger Dolch (+1⚔) ist angelegt.`, '#ffd166');
+  updateUI();
+  updateMetaUI();
+}
+
+function saveGameToFile() {
+  if (!state || !state.player || state.gameOver) return;
+  const saveData = { metaData: metaData, state: state };
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(saveData, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `chris_run${metaData.runs}_ebene${state.floor}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  addLog('Chris\' Spielstand + Schmiede erfolgreich als Datei gespeichert!', '#52c41a');
+}
+
+function triggerLoadFile() {
+  const fileInput = document.getElementById('load-file-input');
+  if (fileInput) fileInput.click();
+}
+
+function processLoadFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed.state && parsed.metaData) {
+        metaData = parsed.metaData;
+        state = parsed.state;
+        if (!state.bloodstains) state.bloodstains = [];
+        saveMetaLocal();
+        const overlay = document.getElementById('overlay');
+        if (overlay) overlay.style.display = 'none';
+        selectedItemIdx = null;
+        recalcStats();
+        computeFOV();
+        updateUI();
+        updateMetaUI();
+        addLog('Spielstand erfolgreich aus Datei geladen!', '#00f5d4');
+      }
+    } catch(err) {}
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function isNearOtherRoom(x, y, rooms, idxA, idxB) {
+  for (let i = 0; i < rooms.length; i++) {
+    if (i === idxA || i === idxB) continue;
+    const r = rooms[i];
+    if (x >= r.x - 2 && x <= r.x + r.w + 1 && y >= r.y - 2 && y <= r.y + r.h + 1) return true;
+  }
+  return false;
+}
+
+function carveSingleCorridor(rooms, idxA, idxB) {
+  const rA = rooms[idxA];
+  const rB = rooms[idxB];
+  const startX = rA.cx, startY = rA.cy;
+  const endX = rB.cx, endY = rB.cy;
+
+  const queue = [[startX, startY]];
+  const visited = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(false));
+  const parent = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(null));
+  visited[startY][startX] = true;
+
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  let found = false;
+
+  while (queue.length > 0) {
+    const [cx, cy] = queue.shift();
+    if (cx === endX && cy === endY) { found = true; break; }
+    for (const [dx, dy] of dirs) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 2 || nx >= MAP_W - 2 || ny < 2 || ny >= MAP_H - 2) continue;
+      if (visited[ny][nx]) continue;
+      if (isNearOtherRoom(nx, ny, rooms, idxA, idxB)) continue;
+      visited[ny][nx] = true;
+      parent[ny][nx] = [cx, cy];
+      queue.push([nx, ny]);
+    }
+  }
+
+  if (found) {
+    let curr = [endX, endY];
+    while (curr) {
+      const [px, py] = curr;
+      state.map[py][px] = 0;
+      curr = parent[py][px];
+    }
+  } else {
+    let x = startX, y = startY;
+    while (x !== endX) { state.map[y][x] = 0; x += x < endX ? 1 : -1; }
+    while (y !== endY) { state.map[y][x] = 0; y += y < endY ? 1 : -1; }
+  }
+}
+
+function generateShopItems(floor, safeSpots) {
+  const shopItems = [];
+
+  if (floor <= 4) {
+    const types = [
+      { name: 'Breitschwert', min: 3, max: 6, price: 40 },
+      { name: 'Eisenbeil', min: 2, max: 5, price: 35 },
+      { name: 'Kriegshammer', min: 4, max: 7, price: 55 }
+    ];
+    const t = types[Math.floor(Math.random() * types.length)];
+    const atk = Math.floor(Math.random() * (t.max - t.min + 1)) + t.min;
+    const prefix = atk >= t.max ? 'Meisterhaftes ' : (atk <= t.min ? 'Rostiges ' : 'Solides ');
+    shopItems.push({ x: safeSpots[0].x, y: safeSpots[0].y, type: 'weapon', sprite: 'weapon', name: prefix + t.name, atk: atk, desc: `Eine Klinge mit +${atk} Angriff.`, price: t.price + (atk * 3) });
+
+    const aTypes = [
+      { name: 'Kettenhemd', min: 2, max: 4, price: 38 },
+      { name: 'Lederpanzer', min: 1, max: 3, price: 28 },
+      { name: 'Schuppenpanzer', min: 3, max: 5, price: 50 }
+    ];
+    const at = aTypes[Math.floor(Math.random() * aTypes.length)];
+    const def = Math.floor(Math.random() * (at.max - at.min + 1)) + at.min;
+    const aPrefix = def >= at.max ? 'Verstärkter ' : 'Solider ';
+    shopItems.push({ x: safeSpots[1].x, y: safeSpots[1].y, type: 'armor', sprite: 'armor', name: aPrefix + at.name, def: def, desc: `Schützt vor Hieben (+${def} Abwehr).`, price: at.price + (def * 4) });
+
+  } else if (floor <= 7) {
+    const types = [
+      { name: 'Runenklinge', min: 8, max: 12, price: 120 },
+      { name: 'Elfenklinge', min: 7, max: 11, price: 110 },
+      { name: 'Streitaxt', min: 9, max: 14, price: 140 }
+    ];
+    const t = types[Math.floor(Math.random() * types.length)];
+    const atk = Math.floor(Math.random() * (t.max - t.min + 1)) + t.min;
+    shopItems.push({ x: safeSpots[0].x, y: safeSpots[0].y, type: 'weapon', sprite: 'weapon', name: 'Magisches ' + t.name, atk: atk, desc: `Magische Klinge (+${atk} Angriff).`, price: t.price + (atk * 4) });
+
+    const aTypes = [
+      { name: 'Plattenpanzer', min: 5, max: 8, price: 115 },
+      { name: 'Ritterrüstung', min: 6, max: 9, price: 130 }
+    ];
+    const at = aTypes[Math.floor(Math.random() * aTypes.length)];
+    const def = Math.floor(Math.random() * (at.max - at.min + 1)) + at.min;
+    shopItems.push({ x: safeSpots[1].x, y: safeSpots[1].y, type: 'armor', sprite: 'armor', name: 'Eiserner ' + at.name, def: def, desc: `Schwere Rüstung (+${def} Abwehr).`, price: at.price + (def * 5) });
+
+  } else {
+    const atk = Math.floor(Math.random() * 5) + 13;
+    shopItems.push({ x: safeSpots[0].x, y: safeSpots[0].y, type: 'weapon', sprite: 'weapon', name: 'Drachentöter', atk: atk, desc: `Legendäre Klinge (+${atk} Angriff).`, price: 220 + (atk * 5) });
+
+    const def = Math.floor(Math.random() * 4) + 9;
+    shopItems.push({ x: safeSpots[1].x, y: safeSpots[1].y, type: 'armor', sprite: 'armor', name: 'Drachenschuppen', def: def, desc: `Fast undurchdringlich (+${def} Abwehr).`, price: 200 + (def * 6) });
+  }
+
+  const potPrice = 25 + (floor * 5);
+  shopItems.push({ x: safeSpots[2].x, y: safeSpots[2].y, type: 'potion', sprite: 'potion', name: 'Heiltrank', desc: 'Stellt HP wieder her.', price: potPrice });
+
+  return shopItems;
+}
+
+function generateFloor() {
+  state.map = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(1));
+  state.visible = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(false));
+  state.explored = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(false));
+  state.enemies = [];
+  state.items = [];
+  state.bloodstains = [];
+
+  const rooms = [];
+  for (let i = 0; i < 90; i++) {
+    if (rooms.length >= 10) break;
+    const w = Math.floor(Math.random() * 4) + 5;
+    const h = Math.floor(Math.random() * 4) + 4;
+    const x = Math.floor(Math.random() * (MAP_W - w - 6)) + 3;
+    const y = Math.floor(Math.random() * (MAP_H - h - 6)) + 3;
+
+    const overlaps = rooms.some(r => x < r.x + r.w + 4 && x + w + 4 > r.x && y < r.y + r.h + 4 && y + h + 4 > r.y);
+    if (!overlaps) {
+      rooms.push({ x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) });
+      for (let ry = y; ry < y + h; ry++) {
+        for (let rx = x; rx < x + w; rx++) state.map[ry][rx] = 0;
+      }
+    }
+  }
+
+  const orderedRooms = [rooms[0]];
+  const remaining = rooms.slice(1);
+  while (remaining.length > 0) {
+    const last = orderedRooms[orderedRooms.length - 1];
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const d = Math.hypot(remaining[i].cx - last.cx, remaining[i].cy - last.cy);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    orderedRooms.push(remaining.splice(bestIdx, 1)[0]);
+  }
+
+  for (let i = 1; i < orderedRooms.length; i++) {
+    carveSingleCorridor(orderedRooms, i - 1, i);
+  }
+
+  state.player.x = orderedRooms[0].cx;
+  state.player.y = orderedRooms[0].cy;
+
+  if (state.floor > 1) {
+    const prevTrans = FLOOR_TRANSITIONS[state.floor - 1];
+    if (prevTrans) {
+      state.items.push({ x: orderedRooms[0].cx, y: orderedRooms[0].cy - 1, type: 'broken_exit', sprite: prevTrans.brokenSprite, name: `Zerstört: ${prevTrans.name}`, examineMsg: prevTrans.examineMsg });
+    }
+  }
+
+  const lastRoom = orderedRooms[orderedRooms.length - 1];
+  if (state.floor < MAX_FLOORS) {
+    const trans = FLOOR_TRANSITIONS[state.floor];
+    state.items.push({ x: lastRoom.cx, y: lastRoom.cy, type: 'stairs', sprite: trans.intactSprite, name: trans.name });
+  } else {
+    state.items.push({ x: lastRoom.cx, y: lastRoom.cy, type: 'amulet', sprite: 'amulet' });
+    state.enemies.push({ x: lastRoom.cx, y: lastRoom.cy - 1, name: 'Erz-Drache Yendor', sprite: 'dragon', hp: 250, maxHp: 250, atk: 40, def: 11, xp: 500 });
+  }
+
+  const startCombatRoom = state.floor >= 2 ? 2 : 1;
+  if (state.floor >= 2 && orderedRooms.length > 2) {
+    const sRoom = orderedRooms[1];
+    const cx = sRoom.cx;
+    const cy = sRoom.cy;
+    state.enemies.push({ x: cx, y: cy, name: 'Händler Karl-Heinz', sprite: 'shopkeeper', hp: 9999, maxHp: 9999, atk: 0, def: 99, isShopkeeper: true });
+    
+    const safeSpots = [];
+    for(let y = sRoom.y + 1; y < sRoom.y + sRoom.h - 1; y++) {
+        for(let x = sRoom.x + 1; x < sRoom.x + sRoom.w - 1; x++) {
+            if (x !== cx || y !== cy) safeSpots.push({x, y});
+        }
+    }
+    safeSpots.sort(() => Math.random() - 0.5);
+    
+    const shopItems = generateShopItems(state.floor, safeSpots);
+    shopItems.forEach(si => state.items.push(si));
+  }
+
+  for (let i = startCombatRoom; i < orderedRooms.length; i++) {
+    const r = orderedRooms[i];
+    const enemyCount = (state.floor >= 5 && Math.random() < 0.30) ? 2 : 1;
+    for (let e = 0; e < enemyCount; e++) {
+      const ex = r.x + 1 + (e * 2);
+      const ey = r.y + 1;
+      if (state.map[ey] && state.map[ey][ex] === 0) {
+        state.enemies.push(createEnemy(ex, ey, state.floor));
+      }
+    }
+
+    if (Math.random() < 0.80) {
+      const types = ['potion', 'scroll', 'gold', 'gold', 'gold'];
+      let t = types[Math.floor(Math.random() * types.length)];
+      if (t === 'scroll' && Math.random() < (1 / 7)) t = 'mystery_scroll';
+      
+      const ix = r.x + 1 + Math.floor(Math.random() * (r.w - 2));
+      const iy = r.y + 1 + Math.floor(Math.random() * (r.h - 2));
+      if (!state.items.some(it => it.x === ix && it.y === iy)) {
+        state.items.push({ x: ix, y: iy, type: t, sprite: t });
+      }
+    }
+  }
+  computeFOV();
+}
+
+function createEnemy(x, y, floor) {
+  const pool = ENEMY_POOLS[floor] || ENEMY_POOLS[9];
+  const tpl = pool[Math.floor(Math.random() * pool.length)];
+  return { x, y, name: tpl.name, sprite: tpl.sprite, hp: tpl.hp, maxHp: tpl.hp, atk: tpl.atk, def: tpl.def, xp: tpl.xp };
+}
+
+function spawnLevelScaledGuardian() {
+  const p = state.player;
+  const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+  let spawnPos = null;
+  for (const [dx, dy] of dirs) {
+    const nx = p.x + dx, ny = p.y + dy;
+    if (nx > 0 && nx < MAP_W - 1 && ny > 0 && ny < MAP_H - 1) {
+      if (state.map[ny][nx] === 0 && !state.enemies.some(e => e.x === nx && e.y === ny)) {
+        spawnPos = [nx, ny]; break;
+      }
+    }
+  }
+  if (!spawnPos) return false;
+
+  const lvl = p.lvl;
+  const gHp = 14 + (lvl * 7);
+  const gAtk = 5 + Math.floor(lvl * 2.4);
+  const gDef = Math.floor((lvl - 1) * 0.8);
+  const gXp = 12 + (lvl * 6);
+
+  state.enemies.push({ x: spawnPos[0], y: spawnPos[1], name: `Schatten-Wächter (St. ${lvl})`, sprite: 'shadow', hp: gHp, maxHp: gHp, atk: gAtk, def: gDef, xp: gXp, isGuardian: true });
+  return true;
+}
+
+function computeFOV() {
+  if (!state || !state.player) return;
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) state.visible[y][x] = false;
+  const radius = 6.5;
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      if (Math.hypot(x - state.player.x, y - state.player.y) <= radius && hasLOS(state.player.x, state.player.y, x, y)) {
+        state.visible[y][x] = true;
+        state.explored[y][x] = true;
+      }
+    }
+  }
+}
+
+function hasLOS(x0, y0, x1, y1) {
+  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  if (steps === 0) return true;
+  for (let i = 1; i < steps; i++) {
+    const x = Math.round(x0 + (x1 - x0) * (i / steps));
+    const y = Math.round(y0 + (y1 - y0) * (i / steps));
+    if (state.map[y][x] === 1) return false;
+  }
+  return true;
+}
+
+function checkCheatSequence(dx, dy) {
+  if (cheatUnlocked) return;
+  let dir = '';
+  if (dx === 0 && dy === -1) dir = 'U';
+  else if (dx === 0 && dy === 1) dir = 'D';
+  else if (dx === -1 && dy === 0) dir = 'L';
+  else if (dx === 1 && dy === 0) dir = 'R';
+  if (!dir) return;
+
+  cheatHistory.push(dir);
+  if (cheatHistory.length > CHEAT_SEQUENCE.length) {
+    cheatHistory.shift();
+  }
+  if (cheatHistory.join(',') === CHEAT_SEQUENCE.join(',')) {
+    cheatUnlocked = true;
+    document.getElementById('cheat-box').style.display = 'block';
+    playSound('lvlup');
+    addLog('🕹️ GEHEIMCODE AKTIVIERT! Entwickler-Cheat-Menü rechts freigeschaltet!', '#00f5d4');
+  }
+}
+
+function toggleGodMode() {
+  if (!cheatUnlocked) return;
+  godMode = !godMode;
+  const btn = document.getElementById('cheat-god');
+  btn.textContent = `[G] Godmode: ${godMode ? 'AN' : 'AUS'}`;
+  btn.classList.toggle('active-cheat', godMode);
+  playSound('item');
+  addLog(`🕹️ CHEAT: Godmode (Unverwundbarkeit) ist jetzt ${godMode ? 'AKTIVIERT' : 'DEAKTIVIERT'}!`, '#00f5d4');
+}
+
+function cheatChangeFloor(delta) {
+  if (!cheatUnlocked || !state || !state.player || state.gameOver) return;
+  const newFloor = Math.max(1, Math.min(MAX_FLOORS, state.floor + delta));
+  if (newFloor === state.floor) return;
+  state.floor = newFloor;
+  playSound('collapse');
+  addLog(`🕹️ CHEAT: Zeitsprung direkt auf Ebene ${state.floor}!`, '#00f5d4');
+  generateFloor();
+  updateUI();
+}
+
+function cheatTeleportDragon() {
+  if (!cheatUnlocked || !state || !state.player || state.gameOver) return;
+  state.floor = MAX_FLOORS;
+  generateFloor();
+  const dragon = state.enemies.find(e => e.sprite === 'dragon');
+  if (dragon) {
+    state.player.x = dragon.x;
+    state.player.y = Math.max(1, dragon.y - 1);
+    computeFOV();
+  }
+  playSound('lvlup');
+  addLog('🕹️ CHEAT: Direkt zum Erz-Drachen Yendor auf Ebene 9 teleportiert!', '#00f5d4');
+  updateUI();
+}
+
+function cheatHealAndGold() {
+  if (!cheatUnlocked || !state || !state.player || state.gameOver) return;
+  const p = state.player;
+  p.hp = p.maxHp;
+  p.gold += 500;
+  metaData.souls += 100;
+  saveMetaLocal();
+  playSound('coin');
+  flashStat('stat-hp', 'blink-green');
+  flashStat('stat-gold', 'blink-gold');
+  addLog('🕹️ CHEAT: Vollheilung, +500 Gold 🪙 und +100 Seelen-Essenzen 🔮 erhalten!', '#00f5d4');
+  updateUI();
+  updateMetaUI();
+}
+
+function cheatRevealMap() {
+  if (!cheatUnlocked || !state || !state.player || state.gameOver) return;
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      state.explored[y][x] = true;
+    }
+  }
+  playSound('item');
+  addLog('🕹️ CHEAT: Komplette Karte dieser Ebene aufgedeckt!', '#00f5d4');
+}
+
+function drinkPotionShortcut() {
+  if (!state || !state.player || state.gameOver) return;
+  const potIdx = state.inventory.findIndex(i => i.type === 'potion');
+  if (potIdx !== -1) {
+    useItemByIndex(potIdx);
+  } else {
+    addLog('Du hast keinen Heiltrank im Inventar!', '#ff6b6b');
+  }
+}
+
+function handleInput(dx, dy) {
+  if (!state || !state.player || state.gameOver) return;
+  const p = state.player;
+
+  checkCheatSequence(dx, dy);
+
+  if (dx < 0) p.facingLeft = true;
+  else if (dx > 0) p.facingLeft = false;
+
+  const nx = p.x + dx;
+  const ny = p.y + dy;
+
+  if (dx === 0 && dy === 0) return;
+
+  if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
+  if (state.map[ny][nx] === 1) return;
+
+  const enemy = state.enemies.find(e => e.x === nx && e.y === ny);
+  if (enemy) {
+    if (enemy.isShopkeeper) {
+      addLog('Karl-Heinz: "Moin Chris! Tritt einfach auf meine Waren neben mir, um sie zu kaufen!"', '#ffd166');
+    } else {
+      attackEntity(p, enemy, true);
+    }
+    endTurn();
+    return;
+  }
+
+  p.x = nx;
+  p.y = ny;
+  playSound('step');
+  checkItems();
+  endTurn();
+}
+
+function attackEntity(attacker, defender, isPlayer) {
+  const rawDmg = attacker.atk - defender.def + Math.floor(Math.random() * 3) - 1;
+  let dmg = Math.max(1, rawDmg);
+
+  if (!isPlayer && godMode) {
+    dmg = 0;
+  }
+
+  defender.hp -= dmg;
+
+  if (isPlayer) {
+    addLog(`Chris trifft ${defender.name} für ${dmg} Schaden! (${Math.max(0, defender.hp)}/${defender.maxHp} HP)`, '#ffd166');
+    if (defender.hp <= 0) {
+      playSound('kill');
+      state.kills++;
+      const goldDrop = 9 + (state.floor * 5) + Math.floor(Math.random() * 5);
+      const soulDrop = (defender.isGuardian ? 3 : 1) + Math.floor(state.floor / 3);
+      state.player.gold += goldDrop;
+      metaData.souls += soulDrop;
+      saveMetaLocal();
+
+      if (!state.bloodstains) state.bloodstains = [];
+      if (!state.bloodstains.some(b => b.x === defender.x && b.y === defender.y)) {
+        state.bloodstains.push({ x: defender.x, y: defender.y });
+      }
+
+      addLog(`${defender.name} besiegt! (+${defender.xp} XP, +${goldDrop} 🪙, +${soulDrop} 🔮)`, '#52c41a');
+      flashStat('stat-gold', 'blink-gold');
+      state.enemies = state.enemies.filter(e => e !== defender);
+      gainXp(defender.xp);
+    } else {
+      playSound('hit');
+    }
+  } else {
+    playSound('hit');
+    if (godMode) {
+      addLog(`${attacker.name} greift an, aber Chris ist im Godmode (0 Schaden)!`, '#00f5d4');
+    } else {
+      addLog(`${attacker.name} trifft Chris für ${dmg} Schaden!`, '#ff6b6b');
+      flashStat('stat-hp', 'blink-red');
+    }
+    if (state.player.hp <= 0) {
+      state.player.hp = 0;
+      updateUI();
+      endGame(false, `Chris wurde auf Ebene ${state.floor} von ${attacker.name} bezwungen.`);
+    }
+  }
+}
+
+function endTurn() {
+  const p = state.player;
+  if (!p || state.gameOver) return;
+
+  for (const e of state.enemies) {
+    if (e.isShopkeeper) continue;
+    const dist = Math.hypot(p.x - e.x, p.y - e.y);
+    if (dist <= 7) {
+      if (dist < 1.5) {
+        attackEntity(e, p, false);
+        if (state.gameOver) return;
+      } else {
+        const dx = Math.sign(p.x - e.x);
+        const dy = Math.sign(p.y - e.y);
+        const nx = e.x + dx, ny = e.y + dy;
+        if (state.map[ny][nx] === 0 && !state.enemies.some(oth => oth.x === nx && oth.y === ny)) {
+          e.x = nx; e.y = ny;
+        }
+      }
+    }
+  }
+  computeFOV();
+  updateUI();
+}
+
+function checkItems() {
+  const p = state.player;
+  const item = state.items.find(i => i.x === p.x && i.y === p.y);
+  if (!item) return;
+
+  if (item.type === 'stairs') {
+    const usedFloor = state.floor;
+    const trans = FLOOR_TRANSITIONS[usedFloor];
+    const floorBonusSouls = usedFloor * 2;
+    metaData.souls += floorBonusSouls;
+    saveMetaLocal();
+    state.floor++;
+    playSound('collapse');
+    addLog(`Ebene ${usedFloor} gemeistert (+${floorBonusSouls} 🔮)! Chris benutzt: ${trans.name} -> Ebene ${state.floor}.`, '#c792ea');
+    addLog(`💥 ${trans.breakMsg}`, '#ff9f1c');
+    generateFloor();
+  } else if (item.type === 'broken_exit') {
+    addLog(item.examineMsg, '#9e93b8');
+  } else if (item.type === 'amulet') {
+    endGame(true, `Unglaublich! Chris hat alle ${MAX_FLOORS} Ebenen überlebt und das Amulett von Yendor im ${metaData.runs}. Versuch geborgen!`);
+  } else if (item.price) {
+    const statInfo = item.atk ? ` (+${item.atk}⚔)` : (item.def ? ` (+${item.def}🛡)` : '');
+
+    if (p.gold >= item.price) {
+      if (item.type === 'weapon' && item.atk <= (p.weaponAtk || 0) && !item.warned) {
+        item.warned = true;
+        addLog(`Karl-Heinz: "He Chris, du hast schon ${p.equippedWeapon || 'eine Waffe'} (+${p.weaponAtk || 0}⚔)! ${item.name}${statInfo} für ${item.price} 🪙 ist nicht besser. Tritt nochmal drauf, wenn du es trotzdem willst!"`, '#ffd166');
+        return;
+      }
+      if (item.type === 'armor' && item.def <= (p.armorDef || 0) && !item.warned) {
+        item.warned = true;
+        addLog(`Karl-Heinz: "He Chris, du trägst schon ${p.equippedArmor || 'Rüstung'} (+${p.armorDef || 0}🛡)! ${item.name}${statInfo} für ${item.price} 🪙 ist nicht besser. Tritt nochmal drauf, wenn du es trotzdem willst!"`, '#ffd166');
+        return;
+      }
+
+      p.gold -= item.price;
+      playSound('coin');
+      flashStat('stat-gold', 'blink-gold');
+      
+      if (item.type === 'potion') {
+        const existingPotion = state.inventory.find(i => i.type === 'potion');
+        if (existingPotion) {
+          existingPotion.count = (existingPotion.count || 1) + 1;
+        } else {
+          state.inventory.push({ name: 'Heiltrank', type: 'potion', count: 1, desc: 'Stellt HP wieder her.' });
+        }
+        addLog(`Bei Karl-Heinz gekauft: Heiltrank für ${item.price} Gold!`, '#f39c12');
+      } else {
+        const newItem = { name: item.name, type: item.type, atk: item.atk, def: item.def, desc: item.desc };
+        state.inventory.push(newItem);
+
+        if (newItem.type === 'weapon' && newItem.atk > (p.weaponAtk || 0)) {
+          p.weaponAtk = newItem.atk;
+          p.equippedWeapon = newItem.name;
+          recalcStats();
+          flashStat('stat-atk', 'blink-gold');
+          addLog(`Karl-Heinz: "Gute Wahl, Chris!" ${newItem.name} (+${newItem.atk}⚔) direkt angelegt!`, '#f39c12');
+        } else if (newItem.type === 'armor' && newItem.def > (p.armorDef || 0)) {
+          p.armorDef = newItem.def;
+          p.equippedArmor = newItem.name;
+          recalcStats();
+          flashStat('stat-def', 'blink-meta');
+          addLog(`Karl-Heinz: "Sitzt wie angegossen!" ${newItem.name} (+${newItem.def}🛡) direkt angelegt!`, '#f39c12');
+        } else {
+          addLog(`Karl-Heinz: "Na gut, wie du meinst!" ${item.name}${statInfo} für ${item.price} Gold ins Inventar gepackt.`, '#f39c12');
+        }
+      }
+      state.items = state.items.filter(i => i !== item);
+    } else {
+      addLog(`Karl-Heinz: "${item.name}${statInfo} kostet ${item.price} 🪙 (Chris hat erst ${p.gold} 🪙)."`, '#ffd166');
+    }
+  } else if (item.type === 'scroll') {
+    p.scrollAtkBonus += 1;
+    recalcStats();
+    playSound('lvlup');
+    flashStat('stat-atk', 'blink-gold');
+    addLog('✨ Schriftrolle der Macht sofort gelesen: Dauerhaft +1 Angriff für diesen Run!', '#00f5d4');
+    state.items = state.items.filter(i => i !== item);
+  } else if (item.type === 'mystery_scroll') {
+    state.items = state.items.filter(i => i !== item);
+    const roll = Math.random();
+    if (roll < 0.65) {
+      playSound('lvlup');
+      if (Math.random() < 0.55) {
+        p.scrollAtkBonus += 2; recalcStats(); flashStat('stat-atk', 'blink-gold');
+        addLog('✨ Mysteriöse Schriftrolle sofort entfesselt: Uralter Segen! Chris erhält +2 Angriff!', '#00f5d4');
+      } else {
+        p.hp = p.maxHp; p.scrollDefBonus = (p.scrollDefBonus || 0) + 1; recalcStats();
+        flashStat('stat-hp', 'blink-green'); flashStat('stat-def', 'blink-meta');
+        addLog('✨ Mysteriöse Schriftrolle sofort entfesselt: Göttlicher Schutz! Voll geheilt & +1 Abwehr!', '#52c41a');
+      }
+    } else {
+      playSound('curse');
+      const badRoll = Math.random();
+      if (badRoll < 0.35) {
+        if (!godMode) { p.scrollAtkBonus -= 1; recalcStats(); flashStat('stat-atk', 'blink-red'); }
+        addLog('💀 Mysteriöse Schriftrolle sofort entfesselt: Fluch der Schwäche! -1 Angriff.', '#ff6b6b');
+      } else if (badRoll < 0.70) {
+        const dmg = godMode ? 0 : Math.max(1, Math.floor(p.hp * 0.30));
+        p.hp = Math.max(1, p.hp - dmg);
+        if (!godMode) flashStat('stat-hp', 'blink-red');
+        addLog(`💀 Mysteriöse Schriftrolle sofort entfesselt: Schattenbiss kostet Chris ${dmg} HP!`, '#ff6b6b');
+      } else {
+        const spawned = spawnLevelScaledGuardian();
+        if (spawned) {
+          computeFOV(); addLog(`👻 Mysteriöse Schriftrolle sofort entfesselt: Ein Schatten-Wächter erscheint!`, '#e07be0');
+        } else {
+          const dmg = godMode ? 0 : Math.max(1, Math.floor(p.hp * 0.25));
+          p.hp = Math.max(1, p.hp - dmg);
+          if (!godMode) flashStat('stat-hp', 'blink-red');
+          addLog(`💀 Mysteriöse Schriftrolle sofort entfesselt: Druckwelle (-${dmg} HP)!`, '#ff6b6b');
+        }
+      }
+    }
+  } else if (item.type === 'gold') {
+    playSound('coin');
+    const gAmt = 16 + (state.floor * 6);
+    const sAmt = 1 + Math.floor(state.floor / 3);
+    p.gold += gAmt;
+    metaData.souls += sAmt;
+    saveMetaLocal();
+    flashStat('stat-gold', 'blink-gold');
+    addLog(`${gAmt} Goldstücke gefunden (+${sAmt} Seelen-Essenz 🔮).`, '#f39c12');
+    state.items = state.items.filter(i => i !== item);
+  } else if (item.type === 'potion') {
+    playSound('item');
+    const existingPotion = state.inventory.find(i => i.type === 'potion');
+    if (existingPotion) {
+      existingPotion.count = (existingPotion.count || 1) + 1;
+    } else {
+      state.inventory.push({ name: 'Heiltrank', type: 'potion', count: 1, desc: 'Stellt HP wieder her.' });
+    }
+    addLog('Aufgehoben: Heiltrank', '#e2dbef');
+    state.items = state.items.filter(i => i !== item);
+  } else {
+    playSound('item');
+    const newItem = { name: item.name || item.type, type: item.type, desc: 'Gegenstand' };
+    state.inventory.push(newItem);
+    addLog(`Aufgehoben: ${newItem.name}`, '#e2dbef');
+    state.items = state.items.filter(i => i !== item);
+  }
+}
+
+function gainXp(amt) {
+  const p = state.player;
+  p.xp += amt;
+  flashStat('stat-xp', 'blink-gold');
+  while (p.xp >= p.nextXp) {
+    playSound('lvlup');
+    p.lvl++;
+    p.nextXp = Math.round(p.nextXp * 1.55);
+    p.maxHp += 6;
+    p.hp = Math.min(p.maxHp, p.hp + 10);
+    p.levelAtkBonus += 1;
+    recalcStats();
+    
+    flashStat('stat-hp', 'blink-green');
+    flashStat('stat-atk', 'blink-gold');
+    addLog(`⭐ STUFENAUFSTIEG! Chris erreicht Level ${p.lvl}! (+6 Max-HP, +1 Angriff)`, '#00f5d4');
+  }
+  updateUI();
+}
+
+function useItemByIndex(idx) {
+  if (!state || !state.player || state.gameOver) return;
+  const item = state.inventory[idx];
+  if (!item) return;
+  const p = state.player;
+
+  if (item.type === 'potion') {
+    const heal = getPotionHeal();
+    p.hp = Math.min(p.maxHp, p.hp + heal);
+    playSound('item');
+    flashStat('stat-hp', 'blink-green');
+    addLog(`Chris trinkt einen Heiltrank (+${heal} HP).`, '#52c41a');
+    
+    item.count--;
+    if (item.count <= 0) {
+      state.inventory.splice(idx, 1);
+    }
+  } else if (item.type === 'weapon') {
+    p.weaponAtk = item.atk || 1;
+    p.equippedWeapon = item.name;
+    recalcStats();
+    playSound('item');
+    flashStat('stat-atk', 'blink-gold');
+    addLog(`Chris legt Waffe an: ${item.name} (+${p.weaponAtk} Angriff)`, '#ffd166');
+  } else if (item.type === 'armor') {
+    p.armorDef = item.def || 1;
+    p.equippedArmor = item.name;
+    recalcStats();
+    playSound('item');
+    flashStat('stat-def', 'blink-meta');
+    addLog(`Chris legt Rüstung an: ${item.name} (+${p.armorDef} Abwehr)`, '#4ecdc4');
+  }
+
+  updateUI();
+}
+
+function endGame(win, text) {
+  state.gameOver = true;
+  const endBonus = (state.floor * 4) + state.kills + (win ? 150 : 0);
+  metaData.souls += endBonus;
+  if (!win) metaData.runs++;
+  saveMetaLocal();
+
+  const vig = document.getElementById('vignette');
+  if (vig) { vig.className = ''; vig.style.opacity = '0'; }
+
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.style.display = 'flex';
+  document.getElementById('overlay-title').textContent = win ? '🏆 CHRIS SIEGT ÜBER DIE 9 EBENEN!' : '💀 CHRIS IST GEFALLEN';
+  document.getElementById('overlay-desc').innerHTML = `${text}<br><span style="color:#e07be0; font-weight:bold;">Run-Abschlussbonus: +${endBonus} Seelen-Essenzen 🔮!</span><br>Nutze die Schatten-Schmiede für Chris' nächsten Versuch.`;
+  updateMetaUI();
+}
+
+function updateUI() {
+  if (!state || !state.player) return;
+  const p = state.player;
+  document.getElementById('stat-hp').textContent = `♥ ${p.hp}/${p.maxHp}`;
+  document.getElementById('stat-gold').textContent = `🪙 ${p.gold}`;
+  document.getElementById('stat-atk').textContent = `⚔ ${p.atk}`;
+  document.getElementById('stat-def').textContent = `🛡 ${p.def}`;
+  document.getElementById('stat-flr').textContent = `Ebene ${state.floor} / ${MAX_FLOORS}`;
+  document.getElementById('stat-souls').textContent = `🔮 ${metaData.souls}`;
+  document.getElementById('stat-xp').textContent = `⭐ LVL ${p.lvl} (${p.xp}/${p.nextXp} XP)`;
+
+  const vig = document.getElementById('vignette');
+  if (vig) {
+    if (state.gameOver) {
+      vig.className = '';
+      vig.style.opacity = '0';
+    } else {
+      const hpRatio = p.hp / p.maxHp;
+      if (hpRatio <= 0.15) {
+        vig.className = 'vignette-pulse-fast';
+        vig.style.opacity = '1';
+      } else if (hpRatio <= 0.30) {
+        vig.className = 'vignette-pulse';
+        vig.style.opacity = '1';
+      } else {
+        vig.className = '';
+        vig.style.opacity = '0';
+      }
+    }
+  }
+
+  const list = document.getElementById('item-list');
+  list.innerHTML = '';
+  state.inventory.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    let statusText = '';
+    if (item.name === p.equippedWeapon || item.name === p.equippedArmor) statusText = '<span style="color:var(--accent);"> [ANGELEGT]</span>';
+    
+    let displayName = item.name;
+    if (item.type === 'potion') {
+      displayName = item.count > 1 ? `Heiltrank (${item.count}) [H]` : `Heiltrank [H]`;
+    } else if (item.atk) {
+      displayName = `${item.name} (+${item.atk}⚔)`;
+    } else if (item.def) {
+      displayName = `${item.name} (+${item.def}🛡)`;
+    }
+
+    div.title = `${item.desc || 'Gegenstand'} (Mit 1 Klick sofort benutzen)`;
+    div.innerHTML = `<span>${displayName}</span>${statusText}`;
+    div.onclick = () => useItemByIndex(idx);
+    list.appendChild(div);
+  });
+}
+
+function drawSprite(name, x, y, flipX = false) {
+  const spr = SPRITES[name];
+  if (!spr) return;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const ch = spr[r][c];
+      if (ch !== '.') {
+        ctx.fillStyle = PALETTE[ch];
+        const drawCol = flipX ? (7 - c) : c;
+        ctx.fillRect(x + drawCol, y + r, 1, 1);
+      }
+    }
+  }
+}
+
+function renderMinimap() {
+  minictx.clearRect(0, 0, MAP_W, MAP_H);
+  if (!state || !state.player) return;
+
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      if (!state.explored[y][x]) continue;
+      if (state.map[y][x] === 1) {
+        minictx.fillStyle = '#3b3054';
+      } else {
+        minictx.fillStyle = state.visible[y][x] ? '#4a3e66' : '#1b1528';
+      }
+      minictx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  for (const item of state.items) {
+    if (!state.explored[item.y][item.x]) continue;
+    if (item.type === 'stairs' || item.type === 'amulet') {
+      minictx.fillStyle = '#00f5d4';
+      minictx.fillRect(item.x, item.y, 1, 1);
+    }
+  }
+
+  for (const e of state.enemies) {
+    if (!state.explored[e.y][e.x]) continue;
+    if (e.isShopkeeper) {
+      minictx.fillStyle = '#e07be0';
+      minictx.fillRect(e.x, e.y, 1, 1);
+    } else if (state.visible[e.y][e.x] || e.sprite === 'dragon') {
+      minictx.fillStyle = '#ef476f';
+      minictx.fillRect(e.x, e.y, 1, 1);
+    }
+  }
+
+  minictx.fillStyle = '#ffd166';
+  minictx.fillRect(state.player.x, state.player.y, 1, 1);
+}
+
+function render() {
+  ctx.fillStyle = '#050408';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!state || !state.player) {
+    requestAnimationFrame(render);
+    return;
+  }
+
+  const p = state.player;
+  const halfW = Math.floor(VIEW_W / 2);
+  const halfH = Math.floor(VIEW_H / 2);
+  const camX = p.x - halfW;
+  const camY = p.y - halfH;
+
+  for (let vy = 0; vy < VIEW_H; vy++) {
+    for (let vx = 0; vx < VIEW_W; vx++) {
+      const mx = camX + vx, my = camY + vy;
+      const sx = vx * TILE, sy = vy * TILE;
+
+      if (mx < 0 || mx >= MAP_W || my < 0 || my >= MAP_H) continue;
+      if (!state.explored[my][mx]) continue;
+
+      const vis = state.visible[my][mx];
+      if (state.map[my][mx] === 1) {
+        // Strukturierte Stein-Wand Optik
+        ctx.fillStyle = vis ? '#3b3054' : '#181424';
+        ctx.fillRect(sx, sy, TILE, TILE);
+        ctx.fillStyle = vis ? '#493e68' : '#221a33';
+        ctx.fillRect(sx, sy, TILE, 1);
+        ctx.fillRect(sx, sy, 1, TILE);
+        ctx.fillStyle = vis ? '#261e38' : '#0d0a14';
+        ctx.fillRect(sx + TILE - 1, sy, 1, TILE);
+        ctx.fillRect(sx, sy + TILE - 1, TILE, 1);
+      } else {
+        ctx.fillStyle = vis ? '#1b1528' : '#0d0b12';
+        ctx.fillRect(sx, sy, TILE, TILE);
+      }
+    }
+  }
+
+  if (state.bloodstains) {
+    for (const b of state.bloodstains) {
+      if (state.visible[b.y] && state.visible[b.y][b.x]) {
+        drawSprite('blood', (b.x - camX) * TILE, (b.y - camY) * TILE);
+      }
+    }
+  }
+
+  for (const item of state.items) {
+    if (state.visible[item.y][item.x]) drawSprite(item.sprite || item.type, (item.x - camX) * TILE, (item.y - camY) * TILE);
+  }
+
+  for (const e of state.enemies) {
+    if (state.visible[e.y][e.x]) drawSprite(e.sprite, (e.x - camX) * TILE, (e.y - camY) * TILE);
+  }
+
+  drawSprite('player', (p.x - camX) * TILE, (p.y - camY) * TILE, p.facingLeft);
+
+  renderMinimap();
+  requestAnimationFrame(render);
+}
+
+document.getElementById('start-btn').addEventListener('click', handleStartButton);
+document.getElementById('reset-meta-btn').addEventListener('click', resetMetaProgress);
+document.getElementById('btn-buy-hp').addEventListener('click', () => buyMetaUpgrade('hp'));
+document.getElementById('btn-buy-atk').addEventListener('click', () => buyMetaUpgrade('atk'));
+document.getElementById('btn-buy-def').addEventListener('click', () => buyMetaUpgrade('def'));
+document.getElementById('btn-buy-pot').addEventListener('click', () => buyMetaUpgrade('pot'));
+
+document.getElementById('sound-btn').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  document.getElementById('sound-btn').textContent = soundEnabled ? '🔊 Ton: AN' : '🔇 Ton: AUS';
+});
+
+document.getElementById('btn-save').addEventListener('click', saveGameToFile);
+document.getElementById('btn-load').addEventListener('click', triggerLoadFile);
+document.getElementById('btn-menu').addEventListener('click', openMainMenu);
+document.getElementById('load-file-input').addEventListener('change', processLoadFile);
+
+document.getElementById('move-up').addEventListener('click', () => handleInput(0, -1));
+document.getElementById('move-down').addEventListener('click', () => handleInput(0, 1));
+document.getElementById('move-left').addEventListener('click', () => handleInput(-1, 0));
+document.getElementById('move-right').addEventListener('click', () => handleInput(1, 0));
+
+document.getElementById('cheat-god').addEventListener('click', toggleGodMode);
+document.getElementById('cheat-prev-flr').addEventListener('click', () => cheatChangeFloor(-1));
+document.getElementById('cheat-next-flr').addEventListener('click', () => cheatChangeFloor(1));
+document.getElementById('cheat-dragon').addEventListener('click', cheatTeleportDragon);
+document.getElementById('cheat-heal').addEventListener('click', cheatHealAndGold);
+document.getElementById('cheat-map').addEventListener('click', cheatRevealMap);
+
+// Tastatur-Steuerung mit Einzel-Tastendruck (kein Dauerdrücken zum Angreifen/Laufen)
+window.addEventListener('keydown', e => {
+  const map = { ArrowUp: [0,-1], KeyW: [0,-1], ArrowDown: [0,1], KeyS: [0,1], ArrowLeft: [-1,0], KeyA: [-1,0], ArrowRight: [1,0], KeyD: [1,0] };
+  if (map[e.code]) {
+    e.preventDefault();
+    handleInput(...map[e.code]);
+    return;
+  }
+
+  if (e.code === 'KeyH') {
+    drinkPotionShortcut();
+    return;
+  }
+
+  if (cheatUnlocked && state && state.player && !state.gameOver) {
+    if (e.code === 'KeyG') toggleGodMode();
+    else if (e.code === 'KeyQ') cheatChangeFloor(-1);
+    else if (e.code === 'KeyE') cheatChangeFloor(1);
+    else if (e.code === 'KeyY') cheatTeleportDragon();
+    else if (e.code === 'KeyF') cheatHealAndGold();
+    else if (e.code === 'KeyK') cheatRevealMap();
+  }
+});
+
+loadMetaLocal();
+updateMetaUI();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
